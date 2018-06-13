@@ -44,7 +44,7 @@ def hs_desc_handler(event):
 
 
 def main():
-    with stem.control.Controller.from_port(port=9051) as controller:
+    with Controller.from_port(port=9051) as controller:
         # Create a connection to the Tor control port
         try:
             controller.authenticate()
@@ -58,8 +58,8 @@ def main():
             logger.info("Caching is: {}".format(controller.is_caching_enabled()))
 
         # Add event listeners for HS_DESC and HS_DESC_CONTENT
-        controller.add_event_listener(hs_desc_handler, stem.control.EventType.HS_DESC)
-        controller.add_event_listener(hs_desc_handler, stem.control.EventType.HS_DESC_CONTENT)
+        controller.add_event_listener(hs_desc_handler, EventType.HS_DESC)
+        controller.add_event_listener(hs_desc_handler, EventType.HS_DESC_CONTENT)
 
         try:
             while True:
