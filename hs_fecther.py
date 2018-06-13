@@ -27,7 +27,7 @@ def hs_desc_handler(event):
       logger.info("Descriptor contains:\n\tAdress: {}\n\tAuthentication: {}\n\tDirectory: {}\n\tDescriptor_id: {}".format(event.address, event.authentication, event.directory, event.descriptor_id))
 
 def main():
-  with stem.control.Controller.from_port("9051") as controller:
+  with stem.control.Controller.from_port(port=9051) as controller:
         # Create a connection to the Tor control port
         try:
             controller.authenticate()
@@ -39,8 +39,8 @@ def main():
             logger.debug("Successfully connected to the Tor control port")
 
         # Add event listeners for HS_DESC and HS_DESC_CONTENT
-        controller.add_event_listener(hs_desc_handler, stem.response.events.HSDescEvent)
-        controller.add_event_listener(hs_desc_handler, stem.response.events.HSDescContentEvent)
+        controller.add_event_listener(hs_desc_handler, stem.control.EventType.HS_DESC)
+        controller.add_event_listener(hs_desc_handler, stem.control.EventType.HS_DESC_CONTENT)
 
   try:
     while True:
