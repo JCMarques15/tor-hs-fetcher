@@ -20,6 +20,7 @@ logger.setLevel(logging.DEBUG)
 
 
 def hs_desc_handler(event):
+    logger.info("Event Triggered!")
     if event.type == "HS_DESC":
         logger.info("HS_DESC received")
         if event.reason:
