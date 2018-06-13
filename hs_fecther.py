@@ -39,7 +39,7 @@ def hs_desc_handler(event):
         else:
             parsed_descriptor = stem.descriptor.hidden_service_descriptor.HiddenServiceDescriptor(descriptor_text, validate=True)
             introduction_points = parsed_descriptor.introduction_points()
-            logger.info("Descriptor contains:\n\tAdress: {}\n\tAuthentication: {}\n\tDirectory: {}\n\tDescriptor_id: {}\n\tIntroduction_Points: {}".format(event.address, event.authentication, event.directory, event.descriptor_id, introduction_points))
+            logger.info("Descriptor contains:\n\tAdress: {}\n\tDirectory: {}\n\tDescriptor_id: {}\n\tIntroduction_Points: {}".format(event.address, event.directory, event.descriptor_id, introduction_points))
 
 
 
