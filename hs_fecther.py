@@ -9,7 +9,7 @@ import logging
 import errno
 
 import stem
-import stem.control
+from stem.control import Controller, EventType
 
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter(fmt="%(asctime)s [%(levelname)s]: %(message)s"))
@@ -20,7 +20,6 @@ logger.setLevel(logging.DEBUG)
 
 
 def hs_desc_handler(event):
-    logger.info("Event Triggered!")
     if event.type == "HS_DESC":
         logger.info("HS_DESC received")
         if event.reason:
@@ -55,17 +54,18 @@ def main():
         else:
             controller.set_caching(False)
             logger.debug("Successfully connected to the Tor control port")
+            print("Tor version: {}".format(controller.get_info("version")))
 
         # Add event listeners for HS_DESC and HS_DESC_CONTENT
         controller.add_event_listener(hs_desc_handler, stem.control.EventType.HS_DESC)
         controller.add_event_listener(hs_desc_handler, stem.control.EventType.HS_DESC_CONTENT)
 
-    try:
-        while True:
-            continue
-    except KeyboardInterrupt:
-        logger.info("Stopping descriptor fetching")
-        sys.exit(0)
+        try:
+            while True:
+                continue
+        except KeyboardInterrupt:
+            logger.info("Stopping descriptor fetching")
+            sys.exit(0)
 
 if __name__ == '__main__':
     main()
