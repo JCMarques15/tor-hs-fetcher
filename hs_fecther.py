@@ -20,6 +20,7 @@ class myThread (threading.Thread):
     for line in script_output:
       print(line)
       
+      
     # TODO: add calls to the scripts and process data!!
     print ("Exiting {}".format(self.name))
 
