@@ -1,72 +1,65 @@
+#!/usr/bin/env python3
+
+import subprocess
 import sys
-import time
-import argparse
-import struct
-import hashlib
-import datetime
-import os
-import logging
-import errno
+import threading
+import sqlite3
 
-import stem
-from stem.control import Controller, EventType
+class myThread (threading.Thread):
+  def __init__(self, threadID, name, pid):
+    threading.Thread.__init__(self)
+    self.threadID = threadID
+    self.name = name
+    self.pid = pid
 
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter(fmt="%(asctime)s [%(levelname)s]: %(message)s"))
+  def run(self):
+    print ("Starting {} with pid: {}".format(self.name, self.pid))
 
-logger = logging.getLogger("onion-load-balancer")
-logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+    # Call dump memory and store the output of the script for processing
+    script_output = self.dump_memory(self.pid)
+    for line in script_output:
+      print(line)
+      
+    # TODO: add calls to the scripts and process data!!
+    print ("Exiting {}".format(self.name))
+
+  def dump_memory(self, pid):
+    self.process_manager = subprocess.Popen(["{}/process_dumper.sh".format(sys.path[0]), pid], stdout=subprocess.PIPE, universal_newlines=True)
+    self.output, self._err = self.process_manager.communicate()
+    return self.output.splitlines()
+
+  def calc_onion_link(self, pkey):
+    self.process_manager = subprocess.Popen(["{}/onion-link-calc.sh".format(sys.path[0]), pkey], stdout=subprocess.PIPE, universal_newlines=True)
+    self.output, self._err = self.process_manager.communicate()
+    return self.output.splitlines()[0]
 
 
-def hs_desc_handler(event):
-    if event.type == "HS_DESC":
-        logger.info("HS_DESC received")
-        if event.reason:
-            logger.info("Descriptor fetching from {} for HS {} failed with error: {}".format(event.directory_fingerprint, event.address, event.reason))
-        else:
-            logger.info("Descriptor contains:\n\tAction: {}\n\tAdress: {}\n\tAuthentication: {}\n\tDirectory: {}\n\tDescriptor_id: {}".format(event.action, event.address, event.authentication, event.directory, event.descriptor_id))
-
-    if event.type == "HS_DESC_CONTENT":
-        logger.info("HS_DESC_CONTENT received")
-        # Save the descriptor content to disk
-        descriptor_text = str(event.descriptor).encode('utf-8')
-
-        # Make sure the descriptor is not empty
-        if len(descriptor_text) < 5:
-            logger.debug("Empty descriptor received for %s" % event.address)
-            return
-        else:
-            parsed_descriptor = stem.descriptor.hidden_service_descriptor.HiddenServiceDescriptor(descriptor_text, validate=True)
-            introduction_points = parsed_descriptor.introduction_points()
-            logger.info("Descriptor contains:\n\tAdress: {}\n\tDirectory: {}\n\tDescriptor_id: {}\n\tNum_Introduction_Points: {}".format(event.address, event.directory, event.descriptor_id, len(introduction_points)))
-
+def extract_pid():
+  process_manager = subprocess.Popen(['pgrep', '^tor'], stdout=subprocess.PIPE, universal_newlines=True)
+  output, _err = process_manager.communicate()
+  return output.splitlines()
 
 
 def main():
-    with Controller.from_port(port=9051) as controller:
-        # Create a connection to the Tor control port
-        try:
-            controller.authenticate()
-        except stem.connection.AuthenticationFailure as exc:
-            logger.error("Unable to authenticate to Tor control port: %s" % exc)
-            sys.exit(1)
-        else:
-            controller.set_caching(True)
-            logger.debug("Successfully connected to the Tor control port")
-            logger.info("Tor version: {}".format(controller.get_info("version")))
-            logger.info("Caching is: {}".format(controller.is_caching_enabled()))
+  # Variable declaration
+  tor_pid = extract_pid()
+  thread_counter=0
+  thread_list=[]
 
-        # Add event listeners for HS_DESC and HS_DESC_CONTENT
-        controller.add_event_listener(hs_desc_handler, EventType.HS_DESC)
-        controller.add_event_listener(hs_desc_handler, EventType.HS_DESC_CONTENT)
+  # Start the threads
+  for pid in tor_pid:
+    thread_list.append(myThread(thread_counter+1, "Thread-{}".format(thread_counter+1), pid))
+    thread_counter += 1
 
-        try:
-            while True:
-                continue
-        except KeyboardInterrupt:
-            logger.info("Stopping descriptor fetching")
-            sys.exit(0)
+  for relay_thread in thread_list:
+    relay_thread.start()
+    relay_thread.join()
+
+  print("Exiting main thread!")
 
 if __name__ == '__main__':
+  try:
     main()
+  except KeyboardInterrupt:
+    print("\rCtrl-C captured, Exiting!")
+    sys.exit(1)
