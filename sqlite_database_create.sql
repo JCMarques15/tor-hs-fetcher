@@ -1,4 +1,4 @@
-PRAGMA foreign_keys = ON
+PRAGMA foreign_keys = ON;
 
 CREATE TABLE hidden_services (
 	id integer PRIMARY KEY AUTOINCREMENT,
