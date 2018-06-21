@@ -8,7 +8,6 @@ CREATE TABLE hidden_services (
 CREATE TABLE descriptors (
 	link_id integer PRIMARY KEY,
 	rendezvous_service_descriptor text,
-	descriptor_id text,
 	format_version text,
 	permanent_key text,
 	secret_id_part text,

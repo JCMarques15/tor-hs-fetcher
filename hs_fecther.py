@@ -8,16 +8,20 @@ import re
 import datetime
 
 class myThread (threading.Thread):
-  def __init__(self, threadID, name, pid):
+  def __init__(self, threadID, name, pid, db, lock):
     threading.Thread.__init__(self)
     self.threadID = threadID
     self.name = name
     self.pid = pid
+    self.db = db
+    self.cursor = db.cursor()
+    self.lock = lock
     self.extraction_datetime = datetime.datetime.today().strftime('%Y-%m-%d-%H')
-    self.file_contents = ""
-    self.descriptor_regex = re.compile("rendezvous-service-descriptor.*?-----END SIGNATURE-----", re.DOTALL)
-    self.descriptor_pkey_regex = re.compile("-----BEGIN RSA PUBLIC KEY-----(.*?)-----END RSA PUBLIC KEY-----", re.DOTALL)
-    self.onion_link = ""
+    self.full_descriptor_regex = re.compile("rendezvous-service-descriptor.*?-----END SIGNATURE-----", re.DOTALL)
+    self. = re.compile("", re.DOTALL)
+    self. = re.compile("", re.DOTALL)
+    self.descriptor_pkey_regex = re.compile("permanent-key\n-----BEGIN RSA PUBLIC KEY-----(.*?)-----END RSA PUBLIC KEY-----", re.DOTALL)
+    self. = re.compile("", re.DOTALL)
 
   def run(self):
     print ("Starting {} with pid: {}".format(self.name, self.pid))
@@ -30,10 +34,29 @@ class myThread (threading.Thread):
     with open("{}/Memory_Dumps/{}H-{}".format(sys.path[0], self.extraction_datetime, self.pid), "r") as self.strings_file:
       self.file_contents = self.strings_file.read()
     
-    for self.descriptor in self.descriptor_regex.match(self.file_contents):
-      self.onion_link = "{}.onion".format(self.calc_onion_link(self.descriptor_pkey_regex.match(self.descriptor).group(1)))
-       
+    for self.descriptor in self.full_descriptor_regex.match(self.file_contents):
+      self.pkey = self.descriptor_pkey_regex.match(self.descriptor).group(1)
+      self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
 
+      with self.lock.acquire():
+        print("{}: Aquired lock".format(self.name))
+        self.cursor.execute("INSERT INTO hidden_services(link) VALUES(?)", (self.onion_link,))
+        self.onion_link_id = self.cursor.execute("SELECT id FROM hidden_services WHERE link=?", (self.onion_link,))
+        self.cursor.execute("INSERT INTO descriptors(link_id, rendezvous_service_descriptor, descriptor_id, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, descriptor_signature) VALUES(:link_id, :rendezvous, :descriptor_id, :format_version, :permanent_key, :secret_id_part, :publication_time, :protocol_versions, :descriptor_signature)", {
+          "link_id":self.onion_link_id, 
+          "rendezvous":, 
+          "descriptor_id":, 
+          "format_version":, 
+          "permanent_key":, 
+          "secret_id_part":, 
+          "publication_time":, 
+          "protocol_versions":, 
+          "descriptor_signature":})
+        for self.entry in self.introduction_points:
+          self.cursor.execute("INSERT INTO 
+        self.db.commit()
+      #self.lock.release()
+      print("{}: Released lock".format(self.name))
 
     print ("Exiting {}".format(self.name))
 
@@ -47,6 +70,8 @@ class myThread (threading.Thread):
     self.output, self._err = self.process_manager.communicate()
     return self.output.splitlines()[0]
 
+  def decode_introduction_points
+
 
 def extract_pid():
   process_manager = subprocess.Popen(['pgrep', '^tor'], stdout=subprocess.PIPE, universal_newlines=True)
@@ -59,13 +84,13 @@ def main():
   tor_pid = extract_pid()
   thread_counter=0
   thread_list=[]
-  
+  lock = threading.Lock()
   db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
 
 
   # Start the threads
   for pid in tor_pid:
-    thread_list.append(myThread(thread_counter+1, "Thread-{}".format(thread_counter+1), pid))
+    thread_list.append(myThread(thread_counter+1, "Thread-{}".format(thread_counter+1), pid, db, lock))
     thread_counter += 1
 
   for relay_thread in thread_list:
