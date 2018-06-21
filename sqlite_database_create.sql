@@ -6,7 +6,8 @@ CREATE TABLE hidden_services (
 );
 
 CREATE TABLE descriptors (
-	PRIMARY KEY FOREIGN KEY(link_id) REFERENCES hidden_services(id),
+	link_id integer PRIMARY KEY,
+	FOREIGN KEY(link_id) REFERENCES hidden_services(id),
 	rendezvous_service_descriptor text,
 	descriptor_id text,
 	format_version text,
@@ -19,6 +20,7 @@ CREATE TABLE descriptors (
 
 CREATE TABLE descriptors_introduction_points (
 	id integer PRIMARY KEY AUTOINCREMENT,
+	link_id integer,
 	FOREIGN KEY(link_id) REFERENCES hidden_services(id),
 	introduction_point text,
 	ip_address text,
