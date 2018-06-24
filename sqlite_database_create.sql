@@ -18,13 +18,14 @@ CREATE TABLE descriptors (
 );
 
 CREATE TABLE descriptors_introduction_points (
-	id integer PRIMARY KEY AUTOINCREMENT,
+	id integer,
 	link_id integer,
 	introduction_point text,
 	ip_address text,
 	onion_port text,
 	onion_key text,
 	service_key text,
+	PRIMARY KEY (id, link_id),
 	FOREIGN KEY(link_id) REFERENCES hidden_services(id)
 );
 
