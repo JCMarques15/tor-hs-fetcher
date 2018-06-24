@@ -133,7 +133,7 @@ def main():
     db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
     cursor = db.cursor()
     with open("{}/sqlite_database_create.sql".format(sys.path[0])) as create_sql:
-      cursor.execute(create_sql.readlines())
+      cursor.execute(create_sql.read())
 
   # Start the threads
   for pid in tor_pid:
