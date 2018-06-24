@@ -7,6 +7,7 @@ import threading
 import sqlite3
 import re
 import datetime
+from pathlib import Path
 
 class myThread (threading.Thread):
   def __init__(self, threadID, name, pid, db, lock):
@@ -78,8 +79,18 @@ class myThread (threading.Thread):
           "publication_time":self.publication_time, 
           "protocol_versions":self.protocol_versions, 
           "descriptor_signature":self.signature})
+        self.ip_counter = 0
         for self.entry in self.introduction_points_list:
-          self.cursor.execute("INSERT INTO 
+          self.ip_counter+=1
+          self.fields = re.match("introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry, re.DOTALL).group()
+          self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
+            "id":self.ip_counter,
+            "link_id":self.onion_link_id,
+            "introduction_point":self.fields[0],
+            "ip":self.fields[1],
+            "port":self.fields[2],
+            "onion_key":self.fields[3],
+            "service_key":self.fields[4]})
         self.db.commit()
       #self.lock.release()
       print("{}: Released lock".format(self.name))
@@ -115,8 +126,14 @@ def main():
   thread_counter=0
   thread_list=[]
   lock = threading.Lock()
-  db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
 
+  if Path("{}/hidden_serbices.db".format(sys.path[0])).is_file():
+    db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
+  else:
+    db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
+    cursor = db.cursor()
+    with open("{}/sqlite_database_create.sql".format(sys.path[0])) as create_sql:
+      cursor.execute(create_sql.readlines())
 
   # Start the threads
   for pid in tor_pid:
@@ -127,6 +144,7 @@ def main():
     relay_thread.start()
     relay_thread.join()
 
+  db.close()
   print("Exiting main thread!")
 
 if __name__ == '__main__':
