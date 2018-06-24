@@ -50,51 +50,53 @@ class myThread (threading.Thread):
     with open("{}/Memory_Dumps/{}H-{}.str".format(sys.path[0], self.extraction_datetime, self.pid), "r") as self.strings_file:
       self.file_contents = self.strings_file.read()
     
-    # Takes all of the descriptors out of the strings variable and process each one by one
-    for self.descriptor in self.full_descriptor_regex.match(self.file_contents):
-      # Extracts each field into his own variable
-      self.rendezvous = self.rendezvous_regex.match(self.descriptor).group(1)
-      self.descriptor_version = self.descriptor_version_regex.match(self.descriptor).group(1)
-      self.pkey = self.descriptor_pkey_regex.match(self.descriptor).group(1)
-      self.secret_id = self.secret_id_regex.match(self.descriptor).group(1)
-      self.publication_time = self.publication_time_regex.match(self.descriptor).group(1)
-      self.protocol_versions = self.protocol_versions_regex.match(self.descriptor).group(1)
-      self.introduction_points_encoded = self.introduction_points_encoded_regex.match(self.descriptor).group(1)
-      self.signature = self.signature_regex.match(self.descriptor).group(1)
-      self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
+    try:
+      # Takes all of the descriptors out of the strings variable and process each one by one
+      for self.descriptor in self.full_descriptor_regex.match(self.file_contents):
+        # Extracts each field into his own variable
+        self.rendezvous = self.rendezvous_regex.match(self.descriptor).group(1)
+        self.descriptor_version = self.descriptor_version_regex.match(self.descriptor).group(1)
+        self.pkey = self.descriptor_pkey_regex.match(self.descriptor).group(1)
+        self.secret_id = self.secret_id_regex.match(self.descriptor).group(1)
+        self.publication_time = self.publication_time_regex.match(self.descriptor).group(1)
+        self.protocol_versions = self.protocol_versions_regex.match(self.descriptor).group(1)
+        self.introduction_points_encoded = self.introduction_points_encoded_regex.match(self.descriptor).group(1)
+        self.signature = self.signature_regex.match(self.descriptor).group(1)
+        self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
 
-      # Extracts each introduction point and adds it to a list
-      self.introduction_points_list = self.full_introduction_points_decoded_regex.match(self.decode_introduction_points(self.introduction_points_encoded))
+        # Extracts each introduction point and adds it to a list
+        self.introduction_points_list = self.full_introduction_points_decoded_regex.match(self.decode_introduction_points(self.introduction_points_encoded))
 
-      with self.lock.acquire():
-        print("{}: Aquired lock".format(self.name))
-        self.cursor.execute("INSERT INTO hidden_services(link) VALUES(?)", (self.onion_link,))
-        self.onion_link_id = self.cursor.execute("SELECT id FROM hidden_services WHERE link=?", (self.onion_link,))
-        self.cursor.execute("INSERT INTO descriptors(link_id, rendezvous_service_descriptor, descriptor_id, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, descriptor_signature) VALUES(:link_id, :rendezvous, :descriptor_id, :format_version, :permanent_key, :secret_id, :publication_time, :protocol_versions, :descriptor_signature)", {
-          "link_id":self.onion_link_id, 
-          "rendezvous":self.rendezvous,
-          "format_version":self.descriptor_version, 
-          "permanent_key":self.pkey, 
-          "secret_id":self.secret_id, 
-          "publication_time":self.publication_time, 
-          "protocol_versions":self.protocol_versions, 
-          "descriptor_signature":self.signature})
-        self.ip_counter = 0
-        for self.entry in self.introduction_points_list:
-          self.ip_counter+=1
-          self.fields = re.match("introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry, re.DOTALL).group()
-          self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
-            "id":self.ip_counter,
-            "link_id":self.onion_link_id,
-            "introduction_point":self.fields[0],
-            "ip":self.fields[1],
-            "port":self.fields[2],
-            "onion_key":self.fields[3],
-            "service_key":self.fields[4]})
-        self.db.commit()
-      #self.lock.release()
-      print("{}: Released lock".format(self.name))
-
+        with self.lock.acquire():
+          print("{}: Aquired lock".format(self.name))
+          self.cursor.execute("INSERT INTO hidden_services(link) VALUES(?)", (self.onion_link,))
+          self.onion_link_id = self.cursor.execute("SELECT id FROM hidden_services WHERE link=?", (self.onion_link,))
+          self.cursor.execute("INSERT INTO descriptors(link_id, rendezvous_service_descriptor, descriptor_id, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, descriptor_signature) VALUES(:link_id, :rendezvous, :descriptor_id, :format_version, :permanent_key, :secret_id, :publication_time, :protocol_versions, :descriptor_signature)", {
+            "link_id":self.onion_link_id, 
+            "rendezvous":self.rendezvous,
+            "format_version":self.descriptor_version, 
+            "permanent_key":self.pkey, 
+            "secret_id":self.secret_id, 
+            "publication_time":self.publication_time, 
+            "protocol_versions":self.protocol_versions, 
+            "descriptor_signature":self.signature})
+          self.ip_counter = 0
+          for self.entry in self.introduction_points_list:
+            self.ip_counter+=1
+            self.fields = re.match("introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry, re.DOTALL).group()
+            self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
+              "id":self.ip_counter,
+              "link_id":self.onion_link_id,
+              "introduction_point":self.fields[0],
+              "ip":self.fields[1],
+              "port":self.fields[2],
+              "onion_key":self.fields[3],
+              "service_key":self.fields[4]})
+          self.db.commit()
+        #self.lock.release()
+        print("{}: Released lock".format(self.name))
+    except TypeError as err:
+      print("No descriptors found!")
     print ("Exiting {}".format(self.name))
 
   def dump_memory(self, pid):
