@@ -47,7 +47,7 @@ class myThread (threading.Thread):
       print(self.line)
 
     # Reads the contents of the strings file into a variable
-    with open("{}/Memory_Dumps/{}H-{}".format(sys.path[0], self.extraction_datetime, self.pid), "r") as self.strings_file:
+    with open("{}/Memory_Dumps/{}H-{}.str".format(sys.path[0], self.extraction_datetime, self.pid), "r") as self.strings_file:
       self.file_contents = self.strings_file.read()
     
     # Takes all of the descriptors out of the strings variable and process each one by one
@@ -128,8 +128,10 @@ def main():
   lock = threading.Lock()
 
   if Path("{}/hidden_serbices.db".format(sys.path[0])).is_file():
+    print("Database exists, opening it up...")
     db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
   else:
+    print("Database doesnt exist, creating it...")
     db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
     cursor = db.cursor()
     with open("{}/sqlite_database_create.sql".format(sys.path[0])) as create_sql:
