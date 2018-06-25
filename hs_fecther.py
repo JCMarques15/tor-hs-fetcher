@@ -68,7 +68,7 @@ class myThread (threading.Thread):
         # Extracts each introduction point and adds it to a list
         self.introduction_points_list = self.full_introduction_points_decoded_regex.finditer(self.decode_introduction_points(self.introduction_points_encoded))
 
-        self.lock.acquire():
+        self.lock.acquire()
         print("{}: Aquired lock".format(self.name))
         self.cursor.execute("INSERT INTO hidden_services(link) VALUES(?)", (self.onion_link,))
         self.onion_link_id = self.cursor.execute("SELECT id FROM hidden_services WHERE link=?", (self.onion_link,))
