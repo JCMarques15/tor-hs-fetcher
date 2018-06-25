@@ -50,7 +50,7 @@ class myThread (threading.Thread):
     with open("{}/Memory_Dumps/{}H-{}.str".format(sys.path[0], self.extraction_datetime, self.pid), "r") as self.strings_file:
       self.file_contents = self.strings_file.read()
     
-    print("File contents: {}".format(self.file_contents))
+    print("regex returns: {}".format(self.full_descriptor_regex.match(self.file_contents)))
 
     try:
       # Takes all of the descriptors out of the strings variable and process each one by one
