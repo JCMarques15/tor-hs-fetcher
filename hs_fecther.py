@@ -52,7 +52,7 @@ class myThread (threading.Thread):
       self.file_contents = self.strings_file.read()
     
     for self.descriptor  in self.full_descriptor_regex.finditer(self.file_contents):
-      print(self.descriptor)
+      print(self.descriptor.match)
       time.sleep(5)
 
     try:
