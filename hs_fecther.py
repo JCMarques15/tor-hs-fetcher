@@ -8,6 +8,7 @@ import sqlite3
 import re
 import datetime
 from pathlib import Path
+import time
 
 class myThread (threading.Thread):
   def __init__(self, threadID, name, pid, db, lock):
@@ -50,7 +51,9 @@ class myThread (threading.Thread):
     with open("{}/Memory_Dumps/{}H-{}.str".format(sys.path[0], self.extraction_datetime, self.pid), "r") as self.strings_file:
       self.file_contents = self.strings_file.read()
     
-    print("regex returns: {}".format(self.full_descriptor_regex.finditer(self.file_contents)))
+    for self.descriptor  in self.full_descriptor_regex.finditer(self.file_contents):
+      print(self.descriptor)
+      time.sleep(5)
 
     try:
       # Takes all of the descriptors out of the strings variable and process each one by one
