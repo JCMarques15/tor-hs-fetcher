@@ -50,24 +50,24 @@ class myThread (threading.Thread):
     with open("{}/Memory_Dumps/{}H-{}.str".format(sys.path[0], self.extraction_datetime, self.pid), "r") as self.strings_file:
       self.file_contents = self.strings_file.read()
     
-    print("regex returns: {}".format(self.full_descriptor_regex.findall(self.file_contents)))
+    print("regex returns: {}".format(self.full_descriptor_regex.finditer(self.file_contents)))
 
     try:
       # Takes all of the descriptors out of the strings variable and process each one by one
-      for self.descriptor in self.full_descriptor_regex.match(self.file_contents):
+      for self.descriptor in self.full_descriptor_regex.finditer(self.file_contents):
         # Extracts each field into his own variable
-        self.rendezvous = self.rendezvous_regex.match(self.descriptor).group(1)
-        self.descriptor_version = self.descriptor_version_regex.match(self.descriptor).group(1)
-        self.pkey = self.descriptor_pkey_regex.match(self.descriptor).group(1)
-        self.secret_id = self.secret_id_regex.match(self.descriptor).group(1)
-        self.publication_time = self.publication_time_regex.match(self.descriptor).group(1)
-        self.protocol_versions = self.protocol_versions_regex.match(self.descriptor).group(1)
-        self.introduction_points_encoded = self.introduction_points_encoded_regex.match(self.descriptor).group(1)
-        self.signature = self.signature_regex.match(self.descriptor).group(1)
+        self.rendezvous = self.rendezvous_regex.search(self.descriptor).group(1)
+        self.descriptor_version = self.descriptor_version_regex.search(self.descriptor).group(1)
+        self.pkey = self.descriptor_pkey_regex.search(self.descriptor).group(1)
+        self.secret_id = self.secret_id_regex.search(self.descriptor).group(1)
+        self.publication_time = self.publication_time_regex.search(self.descriptor).group(1)
+        self.protocol_versions = self.protocol_versions_regex.search(self.descriptor).group(1)
+        self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor).group(1)
+        self.signature = self.signature_regex.search(self.descriptor).group(1)
         self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
 
         # Extracts each introduction point and adds it to a list
-        self.introduction_points_list = self.full_introduction_points_decoded_regex.match(self.decode_introduction_points(self.introduction_points_encoded))
+        self.introduction_points_list = self.full_introduction_points_decoded_regex.search(self.decode_introduction_points(self.introduction_points_encoded))
 
         with self.lock.acquire():
           print("{}: Aquired lock".format(self.name))
