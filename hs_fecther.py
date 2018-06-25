@@ -72,7 +72,7 @@ class myThread (threading.Thread):
         print("{}: Aquired lock".format(self.name))
         self.cursor.execute("INSERT INTO hidden_services(link) VALUES(?)", (self.onion_link,))
         self.onion_link_id = self.cursor.execute("SELECT id FROM hidden_services WHERE link=?", (self.onion_link,))
-        self.cursor.execute("INSERT INTO descriptors(link_id, rendezvous_service_descriptor, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, descriptor_signature) VALUES(:link_id, :rendezvous, :descriptor_id, :format_version, :permanent_key, :secret_id, :publication_time, :protocol_versions, :descriptor_signature)", {
+        self.cursor.execute("INSERT INTO descriptors(link_id, rendezvous_service_descriptor, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, descriptor_signature) VALUES(:link_id, :rendezvous, :format_version, :permanent_key, :secret_id, :publication_time, :protocol_versions, :descriptor_signature)", {
           "link_id":self.onion_link_id, 
           "rendezvous":self.rendezvous,
           "format_version":self.descriptor_version, 
