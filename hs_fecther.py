@@ -50,27 +50,23 @@ class myThread (threading.Thread):
     # Reads the contents of the strings file into a variable
     with open("{}/Memory_Dumps/{}H-{}.str".format(sys.path[0], self.extraction_datetime, self.pid), "r") as self.strings_file:
       self.file_contents = self.strings_file.read()
-    
-    for self.descriptor  in self.full_descriptor_regex.finditer(self.file_contents):
-      print(self.descriptor.group(0))
-      time.sleep(5)
 
     try:
       # Takes all of the descriptors out of the strings variable and process each one by one
       for self.descriptor in self.full_descriptor_regex.finditer(self.file_contents):
         # Extracts each field into his own variable
-        self.rendezvous = self.rendezvous_regex.search(self.descriptor).group(1)
-        self.descriptor_version = self.descriptor_version_regex.search(self.descriptor).group(1)
-        self.pkey = self.descriptor_pkey_regex.search(self.descriptor).group(1)
-        self.secret_id = self.secret_id_regex.search(self.descriptor).group(1)
-        self.publication_time = self.publication_time_regex.search(self.descriptor).group(1)
-        self.protocol_versions = self.protocol_versions_regex.search(self.descriptor).group(1)
-        self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor).group(1)
-        self.signature = self.signature_regex.search(self.descriptor).group(1)
+        self.rendezvous = self.rendezvous_regex.search(self.descriptor.group(0)).group(1)
+        self.descriptor_version = self.descriptor_version_regex.search(self.descriptor.group(0)).group(1)
+        self.pkey = self.descriptor_pkey_regex.search(self.descriptor.group(0)).group(1)
+        self.secret_id = self.secret_id_regex.search(self.descriptor.group(0)).group(1)
+        self.publication_time = self.publication_time_regex.search(self.descriptor.group(0)).group(1)
+        self.protocol_versions = self.protocol_versions_regex.search(self.descriptor.group(0)).group(1)
+        self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1)
+        self.signature = self.signature_regex.search(self.descriptor.group(0)).group(1)
         self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
 
         # Extracts each introduction point and adds it to a list
-        self.introduction_points_list = self.full_introduction_points_decoded_regex.search(self.decode_introduction_points(self.introduction_points_encoded))
+        self.introduction_points_list = self.full_introduction_points_decoded_regex.finditer(self.decode_introduction_points(self.introduction_points_encoded))
 
         with self.lock.acquire():
           print("{}: Aquired lock".format(self.name))
@@ -88,7 +84,7 @@ class myThread (threading.Thread):
           self.ip_counter = 0
           for self.entry in self.introduction_points_list:
             self.ip_counter+=1
-            self.fields = re.match("introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry, re.DOTALL).group()
+            self.fields = re.search("introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry, re.DOTALL).group()
             self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
               "id":self.ip_counter,
               "link_id":self.onion_link_id,
