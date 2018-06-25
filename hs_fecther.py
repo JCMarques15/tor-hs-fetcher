@@ -129,7 +129,7 @@ def main():
   thread_list=[]
   lock = threading.Lock()
 
-  if Path("{}/hidden_serbices.db".format(sys.path[0])).is_file():
+  if Path("{}/hidden_services.db".format(sys.path[0])).is_file():
     print("Database exists, opening it up...")
     db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
   else:
