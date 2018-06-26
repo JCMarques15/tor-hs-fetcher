@@ -160,7 +160,7 @@ class myThread (threading.Thread):
     self.cursor.execute("UPDATE descriptors SET rendezvous_service_descriptor='{}', format_version='{}', permanent_key='{}', secret_id_part='{}', publication_time='{}', protocol_versions='{}', descriptor_signature='{}' WHERE link_id='{}'".format(self.rendezvous, self.descriptor_version, self.pkey, self.secret_id, self.publication_time, self.protocol_versions, self.signature, self.onion_link_id,))
 
     print("[+] Updating the descriptor introduction points in the Database")
-    self.cursor.execute("DELETE FROM descriptors_introduction_points WHERE link_id='?'", (self.onion_link_id,))
+    self.cursor.execute("DELETE FROM descriptors_introduction_points WHERE link_id='{}'".format(self.onion_link_id,))
     self.ip_counter = 0
     for self.entry in self.introduction_points_list:
       self.ip_counter+=1
