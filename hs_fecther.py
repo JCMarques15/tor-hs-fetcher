@@ -73,7 +73,7 @@ class myThread (threading.Thread):
         # Captures an exception raised when there is an error on the decoding of certain fields
         # It prints a message and continues to the next descriptor without inserting into the database
         except UnicodeDecodeError:
-          print("Found descriptor with bad encoding!")
+          print("Found descriptor with bad encoding!\n")
           continue
 
         # Thread acquires the lock to access the database
@@ -157,7 +157,7 @@ class myThread (threading.Thread):
   # Function to update the entry in the database with the newly published descriptor
   def db_update_descriptor(self):
     print("[+] Updating the descriptor entry in the Database")
-    self.cursor.execute("UPDATE descriptors SET rendezvous_service_descriptor='?', format_version='?', permanent_key='?', secret_id_part='?', publication_time='?', protocol_versions='?', descriptor_signature='?' WHERE link_id='?'", (self.rendezvous, self.descriptor_version, self.pkey, self.secret_id, self.publication_time, self.protocol_versions, self.signature, self.onion_link_id))
+    self.cursor.execute("UPDATE descriptors SET rendezvous_service_descriptor='{}', format_version='{}', permanent_key='{}', secret_id_part='{}', publication_time='{}', protocol_versions='{}', descriptor_signature='{}' WHERE link_id='{}'".format(self.rendezvous, self.descriptor_version, self.pkey, self.secret_id, self.publication_time, self.protocol_versions, self.signature, self.onion_link_id,))
 
     print("[+] Updating the descriptor introduction points in the Database")
     self.cursor.execute("DELETE FROM descriptors_introduction_points WHERE link_id='?'", (self.onion_link_id,))
