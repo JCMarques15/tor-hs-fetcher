@@ -74,6 +74,7 @@ class myThread (threading.Thread):
           
           # Extracts each introduction point and adds it to a list
           if (self.introduction_points_encoded is not None):
+            print(self.decode_introduction_points(self.introduction_points_encoded))
             self.introduction_points_list = self.full_introduction_points_decoded_regex.finditer(self.decode_introduction_points(self.introduction_points_encoded))
             self.introduction_points_count = len(list(self.introduction_points_list))
           else:
