@@ -87,9 +87,6 @@ class myThread (threading.Thread):
         except binascii.Error:
           print("Encoding error:\n{}".format(self.descriptor.group(0)))
           sys.exit(1)
-        except sqlite3.OperationalError:
-          print("Sqlite error:\n{}".format(self.descriptor.group(0)))
-          sys.exit(1)
 
         # Thread acquires the lock to access the database
         self.lock.acquire()
@@ -128,6 +125,9 @@ class myThread (threading.Thread):
     # raised from trying to iterate an empty object and prints a message
     except TypeError as err:
       print("No descriptors found! Error: {}".format(err.args))
+    except sqlite3.OperationalError:
+          print("Sqlite error:\n{}".format(self.descriptor.group(0)))
+          sys.exit(1)
     print ("Exiting {}".format(self.name))
 
   # Function to insert new links into the database
