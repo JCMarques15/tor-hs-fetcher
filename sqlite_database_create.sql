@@ -4,7 +4,7 @@ CREATE TABLE hidden_services (
 	id integer PRIMARY KEY AUTOINCREMENT,
 	link text,
 	reachable text,
-	classification text,
+	classification text
 );
 
 CREATE TABLE descriptors (
