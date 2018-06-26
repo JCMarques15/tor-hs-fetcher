@@ -133,7 +133,7 @@ class myThread (threading.Thread):
   # Function to insert new links into the database
   def db_insert_link(self):
     print("[+] Inserting Onion link into the Database")
-    self.cursor.execute("INSERT INTO hidden_services(link) VALUES(?)", (self.onion_link,))
+    self.cursor.execute("INSERT INTO hidden_services(link, reachable, classification) VALUES(?,?,?)", (self.onion_link, "Unknown", "None"))
     self.onion_link_id = self.cursor.lastrowid
 
   # Function to update the fields of an existing entry in the database
