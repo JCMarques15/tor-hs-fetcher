@@ -51,10 +51,11 @@ class myThread (threading.Thread):
     with open("{}/Memory_Dumps/{}H-{}.str".format(sys.path[0], self.extraction_datetime, self.pid), "r") as self.strings_file:
       self.file_contents = self.strings_file.read()
 
+    # Try to extract the descriptors out of the strings file
     try:
       # Takes all of the descriptors out of the strings variable and process each one by one
       for self.descriptor in self.full_descriptor_regex.finditer(self.file_contents):
-        # try to extract the field
+        # try to extract the fields of the descriptor
         try:
           # Extracts each field into his own variable
           self.rendezvous = self.rendezvous_regex.search(self.descriptor.group(0)).group(1)
@@ -66,63 +67,136 @@ class myThread (threading.Thread):
           self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1).strip()
           self.signature = self.signature_regex.search(self.descriptor.group(0)).group(1)
           self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
+          
           # Extracts each introduction point and adds it to a list
           self.introduction_points_list = self.full_introduction_points_decoded_regex.finditer(self.decode_introduction_points(self.introduction_points_encoded))
+        # Captures an exception raised when there is an error on the decoding of certain fields
+        # It prints a message and continues to the next descriptor without inserting into the database
         except UnicodeDecodeError:
           print("Found descriptor with bad encoding!")
           continue
 
+        # Thread acquires the lock to access the database
         self.lock.acquire()
         print("{}: Acquired lock!".format(self.name))
+
+        # Checks if there is already an entry for the onion link
         if (self.cursor.execute("SELECT EXISTS(SELECT * FROM hidden_services WHERE link='{}')".format(self.onion_link,)).fetchone()[0] == 0):
-          print("[+]Inserting Onion link into the Database")
-          self.cursor.execute("INSERT INTO hidden_services(link) VALUES(?)", (self.onion_link,))
-          self.onion_link_id = self.cursor.lastrowid
+          # if there isn't then it calls the function to add it
+          self.db_insert_link()
         else:
-          print("[-]Onion link already in the Database")
+          # If there is then retrieves the link_id of the entry for later use
+          print("[-] Onion link already in the Database")
           self.onion_link_id = self.cursor.execute("SELECT id FROM hidden_services WHERE link='{}'".format(self.onion_link)).fetchone()[0]
           print("Onion link id is: {}".format(self.onion_link_id))
 
-        if (self.cursor.execute("SELECT EXISTS(SELECT link_id, publication_time FROM descriptors WHERE link_id='{}' and publication_time='{}')".format(self.onion_link_id, self.publication_time)).fetchone()[0] == 0):
-          print("[+]Inserting the descriptor field into the Database")
-          self.cursor.execute("INSERT INTO descriptors(link_id, rendezvous_service_descriptor, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, descriptor_signature) VALUES(:link_id, :rendezvous, :format_version, :permanent_key, :secret_id, :publication_time, :protocol_versions, :descriptor_signature)", {
-            "link_id":self.onion_link_id, 
-            "rendezvous":self.rendezvous,
-            "format_version":self.descriptor_version, 
-            "permanent_key":self.pkey, 
-            "secret_id":self.secret_id, 
-            "publication_time":self.publication_time, 
-            "protocol_versions":self.protocol_versions, 
-            "descriptor_signature":self.signature})
-
-          self.ip_counter = 0
-          print("[+]Inserting the Introduction Points into the Database")
-          for self.entry in self.introduction_points_list:
-            self.ip_counter+=1
-            self.fields = re.match(r"introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry.group(0), re.DOTALL)
-            self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
-              "id":self.ip_counter,
-              "link_id":self.onion_link_id,
-              "introduction_point":self.fields.group(1),
-              "ip":self.fields.group(2),
-              "port":self.fields.group(3),
-              "onion_key":self.fields.group(4),
-              "service_key":self.fields.group(5)})
+        # Check if there is already a descriptor entry for the onion link
+        if (self.cursor.execute("SELECT EXISTS(SELECT link_id, publication_time FROM descriptors WHERE link_id='{}')".format(self.onion_link_id)).fetchone()[0] == 0):
+          # If there isn't then call function to insert descriptor, also calls the function to add it to the snapshot table
+          self.db_insert_descriptor()
+          self.snapshot_insert_descriptor()
         else:
-          print("[-]Descriptor is still the same as the one in the Database!")
+          # If there is an entry, it checks if the entry publication time is the same as the newly extracted descriptor
+          if (self.cursor.execute("SELECT EXISTS(SELECT link_id, publication_time FROM descriptors WHERE link_id='{}' and publication_time='{}')".format(self.onion_link_id, self.publication_time)).fetchone()[0] == 0):
+            # If it is not then it calls the function to updates the entry in the database and also calls the function to add it to the snapshot
+            self.db_update_descriptor()
+            self.snapshot_insert_descriptor()
+          else:
+            # If it is the same then just prints a message and continues
+            print("[-] Descriptor is still the same as the one in the Database!")
 
+        # At the end of each entry it commits the changes to the database file and releases the lock so other threads can access the database
         self.db.commit()
         self.lock.release()
         print("{}: Released lock!\n".format(self.name))
+    # If nothing gets extracted it captures the exception 
+    # raised from trying to iterate an empty object and prints a message
     except TypeError as err:
       print("No descriptors found! Error: {}".format(err.args))
     print ("Exiting {}".format(self.name))
 
+  # Function to insert new links into the database
+  def db_insert_link(self):
+    print("[+] Inserting Onion link into the Database")
+    self.cursor.execute("INSERT INTO hidden_services(link) VALUES(?)", (self.onion_link,))
+    self.onion_link_id = self.cursor.lastrowid
+
+  # Function to update the fields of an existing entry in the database
+  def db_update_link(self):
+    print("[+]  Updating Onion link info in the Database")
+    # TODO: Add update code
+    # self.cursor.execute("UPDATE hidden_services SET reachable='?' classification='?' WHERE link='?'", (self.onion_link,))
+
+  # Function to insert new descriptors
+  def db_insert_descriptor(self):
+    print("[+] Inserting the descriptor into the Database")
+    self.cursor.execute("INSERT INTO descriptors(link_id, rendezvous_service_descriptor, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, descriptor_signature) VALUES(:link_id, :rendezvous, :format_version, :permanent_key, :secret_id, :publication_time, :protocol_versions, :descriptor_signature)", {
+      "link_id":self.onion_link_id, 
+      "rendezvous":self.rendezvous,
+      "format_version":self.descriptor_version, 
+      "permanent_key":self.pkey, 
+      "secret_id":self.secret_id, 
+      "publication_time":self.publication_time, 
+      "protocol_versions":self.protocol_versions, 
+      "descriptor_signature":self.signature})
+
+    print("[+] Inserting the Introduction Points into the Database")
+    self.ip_counter = 0
+    for self.entry in self.introduction_points_list:
+      self.ip_counter+=1
+      self.fields = re.match(r"introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry.group(0), re.DOTALL)
+      self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
+        "id":self.ip_counter,
+        "link_id":self.onion_link_id,
+        "introduction_point":self.fields.group(1),
+        "ip":self.fields.group(2),
+        "port":self.fields.group(3),
+        "onion_key":self.fields.group(4),
+        "service_key":self.fields.group(5)})
+
+  # Function to update the entry in the database with the newly published descriptor
+  def db_update_descriptor(self):
+    print("[+] Updating the descriptor entry in the Database")
+    self.cursor.execute("UPDATE descriptors SET rendezvous_service_descriptor='?' format_version='?' permanent_key='?' secret_id_part='?' publication_time='?' protocol_versions='?' descriptor_signature='?' WHERE link_id='?'", (self.rendezvous, self.descriptor_version, self.pkey, self.secret_id, self.publication_time, self.protocol_versions, self.signature, self.onion_link_id))
+
+    print("[+] Updating the descriptor introduction points in the Database")
+    self.cursor.execute("DELETE FROM descriptors_introduction_points WHERE link_id='?'", (self.onion_link_id,))
+    self.ip_counter = 0
+    for self.entry in self.introduction_points_list:
+      self.ip_counter+=1
+      self.fields = re.match(r"introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry.group(0), re.DOTALL)
+      self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
+        "id":self.ip_counter,
+        "link_id":self.onion_link_id,
+        "introduction_point":self.fields.group(1),
+        "ip":self.fields.group(2),
+        "port":self.fields.group(3),
+        "onion_key":self.fields.group(4),
+        "service_key":self.fields.group(5)})
+    
+  # Function to insert the descriptor into a snapshot table for archiving purposes 
+  def snapshot_insert_descriptor(self):
+    print("[+] Inserting the descriptor snapshot into the Database")
+    self.cursor.execute("INSERT INTO descriptors_snapshot(link_id, rendezvous_service_descriptor, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, introduction_points, descriptor_signature) VALUES(:link_id, :rendezvous, :format_version, :permanent_key, :secret_id, :publication_time, :protocol_versions, :introduction_points, :descriptor_signature)", {
+      "link_id":self.onion_link_id, 
+      "rendezvous":self.rendezvous,
+      "format_version":self.descriptor_version, 
+      "permanent_key":self.pkey, 
+      "secret_id":self.secret_id, 
+      "publication_time":self.publication_time, 
+      "protocol_versions":self.protocol_versions,
+      "introduction_points":self.introduction_points_encoded, 
+      "descriptor_signature":self.signature})
+
+  # Function to call the shell script to make the hourly memory dump of the tor processes
+  # TODO: Convert from the shell scrip to native python code
   def dump_memory(self, pid):
     self.process_manager = subprocess.Popen(["{}/process_dumper.sh".format(sys.path[0]), pid], stdout=subprocess.PIPE, universal_newlines=True)
     self.output, self._err = self.process_manager.communicate()
     return self.output.splitlines()
 
+  # Function to call the shell script that calculates the onion link from the public key
+  # TODO: Convert from the shell scrip to native python code
   def calc_onion_link(self, pkey):
     print("Decoding publick key and extracting the onion link!")
     self.process_manager = subprocess.Popen(["{}/onion-link-calc.sh".format(sys.path[0]), pkey], stdout=subprocess.PIPE, universal_newlines=True)
@@ -130,13 +204,13 @@ class myThread (threading.Thread):
     print("Decoded link: {}.onion".format(self.output.splitlines()[0]))
     return self.output.splitlines()[0]
 
+  # Function that decodes the instruction pointers message field of the descriptor
   def decode_introduction_points(self, encoded_introduction_points):
     print("Decoding instruction pointers message" )
     self.output = base64.decodestring(encoded_introduction_points.encode('utf-8').strip())
     print("Decoded the instruction pointers!")
     return self.output.decode('utf-8')
     
-
 
 def extract_pid():
   process_manager = subprocess.Popen(['pgrep', '^tor'], stdout=subprocess.PIPE, universal_newlines=True)

@@ -2,7 +2,9 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE hidden_services (
 	id integer PRIMARY KEY AUTOINCREMENT,
-	link text
+	link text,
+	reachable text,
+	classification text,
 );
 
 CREATE TABLE descriptors (
@@ -26,6 +28,20 @@ CREATE TABLE descriptors_introduction_points (
 	onion_key text,
 	service_key text,
 	PRIMARY KEY (id, link_id),
+	FOREIGN KEY(link_id) REFERENCES hidden_services(id)
+);
+
+CREATE TABLE descriptors_snapshot (
+	id integer PRIMARY KEY AUTOINCREMENT,
+	link_id integer,
+	rendezvous_service_descriptor text,
+	format_version text,
+	permanent_key text,
+	secret_id_part text,
+	publication_time text,
+	protocol_versions text,
+	introduction_points text,
+	descriptor_signature text,
 	FOREIGN KEY(link_id) REFERENCES hidden_services(id)
 );
 
