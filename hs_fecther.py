@@ -26,7 +26,7 @@ class myThread (threading.Thread):
     self.extraction_datetime = datetime.datetime.today().strftime('%Y-%m-%d-%H')
 
     # Initialize regex processing rules
-    self.full_descriptor_regex = re.compile("rendezvous-service-descriptor.*?-----END SIGNATURE-----", re.DOTALL)
+    self.full_descriptor_regex = re.compile("rendezvous-service-descriptor.*?-----END SIGNATURE[-]{0,5}", re.DOTALL)
     self.rendezvous_regex = re.compile(r"rendezvous-service-descriptor\s(.*)")
     self.descriptor_version_regex = re.compile(r"version\s(.*)")
     self.descriptor_pkey_regex = re.compile("permanent-key\n-----BEGIN RSA PUBLIC KEY-----(.*?)-----END RSA PUBLIC KEY-----", re.DOTALL)
@@ -34,7 +34,7 @@ class myThread (threading.Thread):
     self.publication_time_regex = re.compile(r"publication-time\s(.*)")
     self.protocol_versions_regex = re.compile(r"protocol-versions\s(.*)")
     self.introduction_points_encoded_regex = re.compile("introduction-points\n-----BEGIN MESSAGE-----\n(.*?)\n-----END MESSAGE-----", re.DOTALL)
-    self.signature_regex = re.compile("signature\n-----BEGIN SIGNATURE-----(.*?)-----END SIGNATURE-----", re.DOTALL)
+    self.signature_regex = re.compile("signature\n-----BEGIN SIGNATURE-----(.*?)-----END SIGNATURE[-]{0,5}", re.DOTALL)
 
     # Initialize regex to process decoded introduction points
     self.full_introduction_points_decoded_regex = re.compile("introduction-point.*?-----END RSA PUBLIC KEY-----.*?-----END RSA PUBLIC KEY-----", re.DOTALL)
@@ -85,7 +85,10 @@ class myThread (threading.Thread):
           print("Found descriptor with bad encoding!\n")
           continue
         except binascii.Error:
-          print("Encoded message:\n{}".format(self.descriptor))
+          print("Encoding error:\n{}".format(self.descriptor.group(0)))
+          sys.exit(1)
+        except sqlite3.OperationalError:
+          print("Sqlite error:\n{}".format(self.descriptor.group(0)))
           sys.exit(1)
 
         # Thread acquires the lock to access the database
