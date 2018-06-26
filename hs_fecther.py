@@ -9,6 +9,7 @@ import re
 import datetime
 from pathlib import Path
 import base64
+import binascii
 
 class myThread (threading.Thread):
   def __init__(self, threadID, name, pid, db, lock):
@@ -75,6 +76,8 @@ class myThread (threading.Thread):
         except UnicodeDecodeError:
           print("Found descriptor with bad encoding!\n")
           continue
+        except binascii.Error:
+          print("Encoded message:\n{}".format(self.introduction_points_encoded))
 
         # Thread acquires the lock to access the database
         self.lock.acquire()
