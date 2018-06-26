@@ -65,12 +65,20 @@ class myThread (threading.Thread):
           self.secret_id = self.secret_id_regex.search(self.descriptor.group(0)).group(1)
           self.publication_time = self.publication_time_regex.search(self.descriptor.group(0)).group(1)
           self.protocol_versions = self.protocol_versions_regex.search(self.descriptor.group(0)).group(1)
-          self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1)
+          try:
+            self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1)
+          except AttributeError:
+            self.introduction_points_encoded = None
           self.signature = self.signature_regex.search(self.descriptor.group(0)).group(1)
           self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
           
           # Extracts each introduction point and adds it to a list
-          self.introduction_points_list = self.full_introduction_points_decoded_regex.finditer(self.decode_introduction_points(self.introduction_points_encoded))
+          if (self.introduction_points_encoded is not None):
+            self.introduction_points_list = self.full_introduction_points_decoded_regex.finditer(self.decode_introduction_points(self.introduction_points_encoded))
+            self.introduction_points_count = len(self.introduction_points_list)
+          else:
+            self.introduction_points_list = None
+            self.introduction_points_count = 0
         # Captures an exception raised when there is an error on the decoding of certain fields
         # It prints a message and continues to the next descriptor without inserting into the database
         except UnicodeDecodeError:
@@ -78,8 +86,7 @@ class myThread (threading.Thread):
           continue
         except binascii.Error:
           print("Encoded message:\n{}".format(self.descriptor))
-        except AttributeError:
-          print("Encoded message:\n{}".format(self.descriptor))
+          sys.exit(1)
 
         # Thread acquires the lock to access the database
         self.lock.acquire()
@@ -135,50 +142,53 @@ class myThread (threading.Thread):
   # Function to insert new descriptors
   def db_insert_descriptor(self):
     print("[+] Inserting the descriptor into the Database")
-    self.cursor.execute("INSERT INTO descriptors(link_id, rendezvous_service_descriptor, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, descriptor_signature) VALUES(:link_id, :rendezvous, :format_version, :permanent_key, :secret_id, :publication_time, :protocol_versions, :descriptor_signature)", {
+    self.cursor.execute("INSERT INTO descriptors(link_id, rendezvous_service_descriptor, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, introduction_points_count, descriptor_signature) VALUES(:link_id, :rendezvous, :format_version, :permanent_key, :secret_id, :publication_time, :protocol_versions, :introduction_points_count, :descriptor_signature)", {
       "link_id":self.onion_link_id, 
       "rendezvous":self.rendezvous,
       "format_version":self.descriptor_version, 
       "permanent_key":self.pkey, 
       "secret_id":self.secret_id, 
       "publication_time":self.publication_time, 
-      "protocol_versions":self.protocol_versions, 
+      "protocol_versions":self.protocol_versions,
+      "introduction_points_count":self.introduction_points_count, 
       "descriptor_signature":self.signature})
 
-    print("[+] Inserting the Introduction Points into the Database")
-    self.ip_counter = 0
-    for self.entry in self.introduction_points_list:
-      self.ip_counter+=1
-      self.fields = re.match(r"introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry.group(0), re.DOTALL)
-      self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
-        "id":self.ip_counter,
-        "link_id":self.onion_link_id,
-        "introduction_point":self.fields.group(1),
-        "ip":self.fields.group(2),
-        "port":self.fields.group(3),
-        "onion_key":self.fields.group(4),
-        "service_key":self.fields.group(5)})
+    if (self.introduction_points_list is not None):
+      print("[+] Inserting the Introduction Points into the Database")
+      self.ip_counter = 0
+      for self.entry in self.introduction_points_list:
+        self.ip_counter+=1
+        self.fields = re.match(r"introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry.group(0), re.DOTALL)
+        self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
+          "id":self.ip_counter,
+          "link_id":self.onion_link_id,
+          "introduction_point":self.fields.group(1),
+          "ip":self.fields.group(2),
+          "port":self.fields.group(3),
+          "onion_key":self.fields.group(4),
+          "service_key":self.fields.group(5)})
 
   # Function to update the entry in the database with the newly published descriptor
   def db_update_descriptor(self):
     print("[+] Updating the descriptor entry in the Database")
-    self.cursor.execute("UPDATE descriptors SET rendezvous_service_descriptor='{}', format_version='{}', permanent_key='{}', secret_id_part='{}', publication_time='{}', protocol_versions='{}', descriptor_signature='{}' WHERE link_id='{}'".format(self.rendezvous, self.descriptor_version, self.pkey, self.secret_id, self.publication_time, self.protocol_versions, self.signature, self.onion_link_id,))
+    self.cursor.execute("UPDATE descriptors SET rendezvous_service_descriptor='{}', format_version='{}', permanent_key='{}', secret_id_part='{}', publication_time='{}', protocol_versions='{}', introduction_points_count='{}', descriptor_signature='{}' WHERE link_id='{}'".format(self.rendezvous, self.descriptor_version, self.pkey, self.secret_id, self.publication_time, self.protocol_versions, self.introduction_points_count, self.signature, self.onion_link_id,))
 
     print("[+] Updating the descriptor introduction points in the Database")
     self.cursor.execute("DELETE FROM descriptors_introduction_points WHERE link_id='{}'".format(self.onion_link_id,))
-    self.ip_counter = 0
-    for self.entry in self.introduction_points_list:
-      self.ip_counter+=1
-      self.fields = re.match(r"introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry.group(0), re.DOTALL)
-      self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
-        "id":self.ip_counter,
-        "link_id":self.onion_link_id,
-        "introduction_point":self.fields.group(1),
-        "ip":self.fields.group(2),
-        "port":self.fields.group(3),
-        "onion_key":self.fields.group(4),
-        "service_key":self.fields.group(5)})
-    
+    if (self.introduction_points_list is not None):
+      self.ip_counter = 0
+      for self.entry in self.introduction_points_list:
+        self.ip_counter+=1
+        self.fields = re.match(r"introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry.group(0), re.DOTALL)
+        self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
+          "id":self.ip_counter,
+          "link_id":self.onion_link_id,
+          "introduction_point":self.fields.group(1),
+          "ip":self.fields.group(2),
+          "port":self.fields.group(3),
+          "onion_key":self.fields.group(4),
+          "service_key":self.fields.group(5)})
+      
   # Function to insert the descriptor into a snapshot table for archiving purposes 
   def snapshot_insert_descriptor(self):
     print("[+] Inserting the descriptor snapshot into the Database")

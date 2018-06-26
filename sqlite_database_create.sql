@@ -15,6 +15,7 @@ CREATE TABLE descriptors (
 	secret_id_part text,
 	publication_time text,
 	protocol_versions text,
+	introduction_points_count integer,
 	descriptor_signature text,
 	FOREIGN KEY(link_id) REFERENCES hidden_services(id)
 );
