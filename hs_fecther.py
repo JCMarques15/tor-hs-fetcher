@@ -65,7 +65,7 @@ class myThread (threading.Thread):
           self.secret_id = self.secret_id_regex.search(self.descriptor.group(0)).group(1)
           self.publication_time = self.publication_time_regex.search(self.descriptor.group(0)).group(1)
           self.protocol_versions = self.protocol_versions_regex.search(self.descriptor.group(0)).group(1)
-          self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1).strip()
+          self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1)
           self.signature = self.signature_regex.search(self.descriptor.group(0)).group(1)
           self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
           
@@ -77,7 +77,9 @@ class myThread (threading.Thread):
           print("Found descriptor with bad encoding!\n")
           continue
         except binascii.Error:
-          print("Encoded message:\n{}".format(self.introduction_points_encoded))
+          print("Encoded message:\n{}".format(self.descriptor))
+        except AttributeError:
+          print("Encoded message:\n{}".format(self.descriptor))
 
         # Thread acquires the lock to access the database
         self.lock.acquire()
