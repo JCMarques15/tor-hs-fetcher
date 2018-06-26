@@ -8,6 +8,7 @@ import sqlite3
 import re
 import datetime
 from pathlib import Path
+import base64
 
 class myThread (threading.Thread):
   def __init__(self, threadID, name, pid, db, lock):
@@ -20,22 +21,22 @@ class myThread (threading.Thread):
     self.cursor = db.cursor()
     self.lock = lock
     
-    # Initalize variable with formated date for later directory naming
+    # Initialize variable with formated date for later directory naming
     self.extraction_datetime = datetime.datetime.today().strftime('%Y-%m-%d-%H')
 
     # Initialize regex processing rules
     self.full_descriptor_regex = re.compile("rendezvous-service-descriptor.*?-----END SIGNATURE-----", re.DOTALL)
-    self.rendezvous_regex = re.compile("rendezvous-service-descriptor\s(.*)")
-    self.descriptor_version_regex = re.compile("version\s(.*)")
+    self.rendezvous_regex = re.compile(r"rendezvous-service-descriptor\s(.*)")
+    self.descriptor_version_regex = re.compile(r"version\s(.*)")
     self.descriptor_pkey_regex = re.compile("permanent-key\n-----BEGIN RSA PUBLIC KEY-----(.*?)-----END RSA PUBLIC KEY-----", re.DOTALL)
-    self.secret_id_regex = re.compile("secret-id-part\s(.*)")
-    self.publication_time_regex = re.compile("publication-time\s(.*)")
-    self.protocol_versions_regex = re.compile("protocol-versions\s(.*)")
-    self.introduction_points_encoded_regex = re.compile("introduction-points\n-----BEGIN MESSAGE-----(.*?)-----END MESSAGE-----", re.DOTALL)
+    self.secret_id_regex = re.compile(r"secret-id-part\s(.*)")
+    self.publication_time_regex = re.compile(r"publication-time\s(.*)")
+    self.protocol_versions_regex = re.compile(r"protocol-versions\s(.*)")
+    self.introduction_points_encoded_regex = re.compile("introduction-points\n-----BEGIN MESSAGE-----\n(.*?)\n-----END MESSAGE-----", re.DOTALL)
     self.signature_regex = re.compile("signature\n-----BEGIN SIGNATURE-----(.*?)-----END SIGNATURE-----", re.DOTALL)
 
-    # Initialize regez to process decoded introduction points
-    self.full_introduction_points_decoded_regex = re.compile("introduction-point.*?-----END RSA PUBLIC KEY-----.*?-----END RSA PUBLIC KEY", re.DOTALL)
+    # Initialize regex to process decoded introduction points
+    self.full_introduction_points_decoded_regex = re.compile("introduction-point.*?-----END RSA PUBLIC KEY-----.*?-----END RSA PUBLIC KEY-----", re.DOTALL)
 
 
   def run(self):
@@ -49,29 +50,42 @@ class myThread (threading.Thread):
     # Reads the contents of the strings file into a variable
     with open("{}/Memory_Dumps/{}H-{}.str".format(sys.path[0], self.extraction_datetime, self.pid), "r") as self.strings_file:
       self.file_contents = self.strings_file.read()
-    
+
     try:
       # Takes all of the descriptors out of the strings variable and process each one by one
-      for self.descriptor in self.full_descriptor_regex.match(self.file_contents):
-        # Extracts each field into his own variable
-        self.rendezvous = self.rendezvous_regex.match(self.descriptor).group(1)
-        self.descriptor_version = self.descriptor_version_regex.match(self.descriptor).group(1)
-        self.pkey = self.descriptor_pkey_regex.match(self.descriptor).group(1)
-        self.secret_id = self.secret_id_regex.match(self.descriptor).group(1)
-        self.publication_time = self.publication_time_regex.match(self.descriptor).group(1)
-        self.protocol_versions = self.protocol_versions_regex.match(self.descriptor).group(1)
-        self.introduction_points_encoded = self.introduction_points_encoded_regex.match(self.descriptor).group(1)
-        self.signature = self.signature_regex.match(self.descriptor).group(1)
-        self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
+      for self.descriptor in self.full_descriptor_regex.finditer(self.file_contents):
+        # try to extract the field
+        try:
+          # Extracts each field into his own variable
+          self.rendezvous = self.rendezvous_regex.search(self.descriptor.group(0)).group(1)
+          self.descriptor_version = self.descriptor_version_regex.search(self.descriptor.group(0)).group(1)
+          self.pkey = self.descriptor_pkey_regex.search(self.descriptor.group(0)).group(1)
+          self.secret_id = self.secret_id_regex.search(self.descriptor.group(0)).group(1)
+          self.publication_time = self.publication_time_regex.search(self.descriptor.group(0)).group(1)
+          self.protocol_versions = self.protocol_versions_regex.search(self.descriptor.group(0)).group(1)
+          self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1).strip()
+          self.signature = self.signature_regex.search(self.descriptor.group(0)).group(1)
+          self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
+          # Extracts each introduction point and adds it to a list
+          self.introduction_points_list = self.full_introduction_points_decoded_regex.finditer(self.decode_introduction_points(self.introduction_points_encoded))
+        except UnicodeDecodeError:
+          print("Found descriptor with bad encoding!")
+          continue
 
-        # Extracts each introduction point and adds it to a list
-        self.introduction_points_list = self.full_introduction_points_decoded_regex.match(self.decode_introduction_points(self.introduction_points_encoded))
-
-        with self.lock.acquire():
-          print("{}: Aquired lock".format(self.name))
+        self.lock.acquire()
+        print("{}: Acquired lock!".format(self.name))
+        if (self.cursor.execute("SELECT EXISTS(SELECT * FROM hidden_services WHERE link='{}')".format(self.onion_link,)).fetchone()[0] == 0):
+          print("[+]Inserting Onion link into the Database")
           self.cursor.execute("INSERT INTO hidden_services(link) VALUES(?)", (self.onion_link,))
-          self.onion_link_id = self.cursor.execute("SELECT id FROM hidden_services WHERE link=?", (self.onion_link,))
-          self.cursor.execute("INSERT INTO descriptors(link_id, rendezvous_service_descriptor, descriptor_id, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, descriptor_signature) VALUES(:link_id, :rendezvous, :descriptor_id, :format_version, :permanent_key, :secret_id, :publication_time, :protocol_versions, :descriptor_signature)", {
+          self.onion_link_id = self.cursor.lastrowid
+        else:
+          print("[-]Onion link already in the Database")
+          self.onion_link_id = self.cursor.execute("SELECT id FROM hidden_services WHERE link='{}'".format(self.onion_link)).fetchone()[0]
+          print("Onion link id is: {}".format(self.onion_link_id))
+
+        if (self.cursor.execute("SELECT EXISTS(SELECT link_id, publication_time FROM descriptors WHERE link_id='{}' and publication_time='{}')".format(self.onion_link_id, self.publication_time)).fetchone()[0] == 0):
+          print("[+]Inserting the descriptor field into the Database")
+          self.cursor.execute("INSERT INTO descriptors(link_id, rendezvous_service_descriptor, format_version, permanent_key, secret_id_part, publication_time, protocol_versions, descriptor_signature) VALUES(:link_id, :rendezvous, :format_version, :permanent_key, :secret_id, :publication_time, :protocol_versions, :descriptor_signature)", {
             "link_id":self.onion_link_id, 
             "rendezvous":self.rendezvous,
             "format_version":self.descriptor_version, 
@@ -80,23 +94,28 @@ class myThread (threading.Thread):
             "publication_time":self.publication_time, 
             "protocol_versions":self.protocol_versions, 
             "descriptor_signature":self.signature})
+
           self.ip_counter = 0
+          print("[+]Inserting the Introduction Points into the Database")
           for self.entry in self.introduction_points_list:
             self.ip_counter+=1
-            self.fields = re.match("introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry, re.DOTALL).group()
+            self.fields = re.match(r"introduction-point\s(.*?)\sip-address\s(.*?)\sonion-port\s(.*?)\sonion-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----\sservice-key\s-----BEGIN RSA PUBLIC KEY-----\s(.*?)\s-----END RSA PUBLIC KEY-----", self.entry.group(0), re.DOTALL)
             self.cursor.execute("INSERT INTO descriptors_introduction_points(id, link_id, introduction_point, ip_address, onion_port, onion_key, service_key) VALUES(:id, :link_id, :introduction_point, :ip, :port, :onion_key, :service_key)", {
               "id":self.ip_counter,
               "link_id":self.onion_link_id,
-              "introduction_point":self.fields[0],
-              "ip":self.fields[1],
-              "port":self.fields[2],
-              "onion_key":self.fields[3],
-              "service_key":self.fields[4]})
-          self.db.commit()
-        #self.lock.release()
-        print("{}: Released lock".format(self.name))
+              "introduction_point":self.fields.group(1),
+              "ip":self.fields.group(2),
+              "port":self.fields.group(3),
+              "onion_key":self.fields.group(4),
+              "service_key":self.fields.group(5)})
+        else:
+          print("[-]Descriptor is still the same as the one in the Database!")
+
+        self.db.commit()
+        self.lock.release()
+        print("{}: Released lock!\n".format(self.name))
     except TypeError as err:
-      print("No descriptors found!")
+      print("No descriptors found! Error: {}".format(err.args))
     print ("Exiting {}".format(self.name))
 
   def dump_memory(self, pid):
@@ -105,15 +124,18 @@ class myThread (threading.Thread):
     return self.output.splitlines()
 
   def calc_onion_link(self, pkey):
+    print("Decoding publick key and extracting the onion link!")
     self.process_manager = subprocess.Popen(["{}/onion-link-calc.sh".format(sys.path[0]), pkey], stdout=subprocess.PIPE, universal_newlines=True)
     self.output, self._err = self.process_manager.communicate()
+    print("Decoded link: {}.onion".format(self.output.splitlines()[0]))
     return self.output.splitlines()[0]
 
   def decode_introduction_points(self, encoded_introduction_points):
-    self.process_manager_echo = subprocess.Popen(["echo", encoded_introduction_points], stdout=subprocess.PIPE)
-    self.process_manager_base64 = subprocess.Popen(["base64", "-d"], stdin=self.process_manager_echo.stdout, stdout=subprocess.PIPE, universal_newlines=True)
-    self.output, self._err = self.process_manager_base64.communicate()
-    return self.output
+    print("Decoding instruction pointers message" )
+    self.output = base64.decodestring(encoded_introduction_points.encode('utf-8').strip())
+    print("Decoded the instruction pointers!")
+    return self.output.decode('utf-8')
+    
 
 
 def extract_pid():
@@ -133,7 +155,7 @@ def main():
     print("Database exists, opening it up...")
     db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
   else:
-    print("Database doesnt exist, creating it...")
+    print("Database doesn't exist, creating it...")
     db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
     cursor = db.cursor()
     with open("{}/sqlite_database_create.sql".format(sys.path[0])) as create_sql:
