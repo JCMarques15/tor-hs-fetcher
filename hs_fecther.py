@@ -26,7 +26,9 @@ class myThread (threading.Thread):
     self.extraction_datetime = datetime.datetime.today().strftime('%Y-%m-%d-%H')
 
     # Initialize regex processing rules
-    self.full_descriptor_regex = re.compile("rendezvous-service-descriptor.*?-----END SIGNATURE[-]{0,5}", re.DOTALL)
+    self.v2_full_descriptor_regex = re.compile("rendezvous-service-descriptor.*?-----END SIGNATURE[-]{0,5}", re.DOTALL)
+    self.v3_full_descriptor_regex = re.compile("hs-descriptor\s[\d].*?signature\s.*?\s", re.DOTALL)
+    self.v3_cert_regex = re.compile("^[-]{0,5}BEGIN\sED25519\sCERT[-]{0,5}\s(.*?)[-]{0,5}END\sED25519\sCERT[-]{0,5}$", re.DOTALL)
     self.rendezvous_regex = re.compile(r"rendezvous-service-descriptor\s(.*)")
     self.descriptor_version_regex = re.compile(r"version\s(.*)")
     self.descriptor_pkey_regex = re.compile("permanent-key\n-----BEGIN RSA PUBLIC KEY-----(.*?)-----END RSA PUBLIC KEY-----", re.DOTALL)
@@ -35,10 +37,11 @@ class myThread (threading.Thread):
     self.protocol_versions_regex = re.compile(r"protocol-versions\s(.*)")
     self.introduction_points_encoded_regex = re.compile("introduction-points\n-----BEGIN MESSAGE-----\n(.*?)\n-----END MESSAGE-----", re.DOTALL)
     self.signature_regex = re.compile("signature\n-----BEGIN SIGNATURE-----(.*?)-----END SIGNATURE[-]{0,5}", re.DOTALL)
-
-    # Initialize regex to process decoded introduction points
     self.full_introduction_points_decoded_regex = re.compile("introduction-point.*?-----END RSA PUBLIC KEY-----.*?-----END RSA PUBLIC KEY-----", re.DOTALL)
 
+    # Initialize counters
+    self.v2_descriptor_counter = 0
+    self.v3_descriptor_counter = 0
 
   def run(self):
     print ("Starting {} with pid: {}".format(self.name, self.pid))
@@ -54,8 +57,11 @@ class myThread (threading.Thread):
 
     # Try to extract the descriptors out of the strings file
     try:
-      # Takes all of the descriptors out of the strings variable and process each one by one
-      for self.descriptor in self.full_descriptor_regex.finditer(self.file_contents):
+      # Takes all of the v3 descriptors out of the strings file and extracts the cert for identification purposes
+      # TODO: add v3 code
+
+      # Takes all of the v2 descriptors out of the strings variable and process each one by one
+      for self.descriptor in self.v2_full_descriptor_regex.finditer(self.file_contents):
         # try to extract the fields of the descriptor
         try:
           # Extracts each field into his own variable
@@ -96,6 +102,7 @@ class myThread (threading.Thread):
         if (self.cursor.execute("SELECT EXISTS(SELECT * FROM hidden_services WHERE link='{}')".format(self.onion_link,)).fetchone()[0] == 0):
           # if there isn't then it calls the function to add it
           self.db_insert_link()
+          self.v2_descriptor_counter += 1
         else:
           # If there is then retrieves the link_id of the entry for later use
           print("[-] Onion link already in the Database")
@@ -121,6 +128,15 @@ class myThread (threading.Thread):
         self.db.commit()
         self.lock.release()
         print("{}: Released lock!\n".format(self.name))
+
+      # Aquire lock at the end and add to the database to a specific table the amount of new links with date of the scan
+      self.lock.acquire()
+      print("{}: Acquired lock!".format(self.name))
+      print("[+] Inserting extraction stats into Database")
+      self.cursor.execute("INSERT INTO extraction_stats(v2, v3, extracted_date, pid) VALUES(?,?,?)", (self.v2_descriptor_counter, self.v3_descriptor_counter, "{}H".format(self.extraction_datetime), self.pid))
+      self.db.commit()
+      self.lock.release()
+      print("{}: Released lock!\n".format(self.name))
     # If nothing gets extracted it captures the exception 
     # raised from trying to iterate an empty object and prints a message
     except TypeError as err:

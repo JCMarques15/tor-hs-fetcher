@@ -46,6 +46,19 @@ CREATE TABLE descriptors_snapshot (
 	FOREIGN KEY(link_id) REFERENCES hidden_services(id)
 );
 
+CREATE TABLE extraction_stats (
+	v2 text,
+	v3 text,
+	extraction_date text,
+	pid integer,
+	PRIMARY KEY (extraction_date, pid)
+);
+
+CREATE TABLE v3_descriptors (
+	id integer PRIMARY KEY AUTOINCREMENT,
+	descriptor_cert text
+);
+
 -- CREATE TABLE service_info (
 -- 	link_id integer,
 -- 	service_type text,
