@@ -72,7 +72,11 @@ class myThread (threading.Thread):
           self.v3_descriptor_counter += 1
         else:
           print("[-] V3 cert already in the Database!")
-          continue
+        
+        # Commit changed to DB and release the lock
+        self.db.commit()
+        self.lock.release()
+        print("{}: Released lock!\n".format(self.name))
 
       # Takes all of the v2 descriptors out of the strings variable and process each one by one
       for self.descriptor in self.v2_full_descriptor_regex.finditer(self.file_contents):
