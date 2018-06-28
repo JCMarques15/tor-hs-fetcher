@@ -28,7 +28,7 @@ class myThread (threading.Thread):
     # Initialize regex processing rules
     self.v2_full_descriptor_regex = re.compile("rendezvous-service-descriptor.*?-----END SIGNATURE[-]{0,5}", re.DOTALL)
     self.v3_full_descriptor_regex = re.compile(r"hs-descriptor\s[\d].*?signature\s.*?\s", re.DOTALL)
-    self.v3_cert_regex = re.compile(r"^[-]{0,5}BEGIN\sED25519\sCERT[-]{0,5}\s(.*?)[-]{0,5}END\sED25519\sCERT[-]{0,5}$", re.DOTALL)
+    self.v3_cert_regex = re.compile("^[-]{0,5}BEGIN ED25519 CERT[-]{0,5}\n(.*?)\n[-]{0,5}END ED25519 CERT[-]{0,5}$", re.DOTALL)
     self.rendezvous_regex = re.compile(r"rendezvous-service-descriptor\s(.*)")
     self.descriptor_version_regex = re.compile(r"version\s(.*)")
     self.descriptor_pkey_regex = re.compile("permanent-key\n-----BEGIN RSA PUBLIC KEY-----(.*?)-----END RSA PUBLIC KEY-----", re.DOTALL)
