@@ -55,14 +55,14 @@ class myThread (threading.Thread):
     with open("{}/Memory_Dumps/{}H-{}.str".format(sys.path[0], self.extraction_datetime, self.pid), "r") as self.strings_file:
       self.file_contents = self.strings_file.read()
 
-    # Try to extract the descriptors out of the strings file
+    # Try to extract V3 descriptors out of the strings file
     try:
       # Takes all of the v3 descriptors out of the strings file and extracts the cert for identification purposes
       for self.v3_descriptor in self.v3_full_descriptor_regex.finditer(self.file_contents):
         # Extract the certificate for comparison
         self.v3_cert = self.v3_cert_regex.search(self.v3_descriptor.group(0)).group(1)
         
-        # Aquire lock to interact with DB
+        # Acquire lock to interact with DB
         self.lock.acquire()
         print("{}: Acquired lock!".format(self.name))
 
@@ -77,8 +77,13 @@ class myThread (threading.Thread):
         self.db.commit()
         self.lock.release()
         print("{}: Released lock!\n".format(self.name))
+    # If no V3 descriptors are found it prints a message and continues to V2 descriptors extraction
+    except TypeError as err:
+      print("No V3 descriptors found! Error: {}".format(err.args))
 
-      # Takes all of the v2 descriptors out of the strings variable and process each one by one
+    # Try to extract V2 descriptors out of the strings file
+    try:
+      # Takes all of the V2 descriptors out of the strings variable and process each one by one
       for self.descriptor in self.v2_full_descriptor_regex.finditer(self.file_contents):
         # try to extract the fields of the descriptor
         try:
@@ -158,7 +163,7 @@ class myThread (threading.Thread):
     # If nothing gets extracted it captures the exception 
     # raised from trying to iterate an empty object and prints a message
     except TypeError as err:
-      print("No descriptors found! Error: {}".format(err.args))
+      print("No V2 descriptors found! Error: {}".format(err.args))
     except sqlite3.OperationalError:
           print("Sqlite error:\n{}".format(self.descriptor.group(0)))
           sys.exit(1)
