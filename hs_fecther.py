@@ -60,7 +60,7 @@ class myThread (threading.Thread):
       # Takes all of the v3 descriptors out of the strings file and extracts the cert for identification purposes
       for self.v3_descriptor in self.v3_full_descriptor_regex.finditer(self.file_contents):
         # Extract the certificate for comparison
-        self.v3_cert = self.v3_cert_regex.search(self.v3_descriptor.group(0)).group(1).strip()
+        self.v3_cert = self.v3_cert_regex.search(self.v3_descriptor.group(0)).group(1).replace('\n', '')
         
         # Acquire lock to interact with DB
         self.lock.acquire()
@@ -90,12 +90,12 @@ class myThread (threading.Thread):
           # Extracts each field into his own variable
           self.rendezvous = self.rendezvous_regex.search(self.descriptor.group(0)).group(1)
           self.descriptor_version = self.descriptor_version_regex.search(self.descriptor.group(0)).group(1)
-          self.pkey = self.descriptor_pkey_regex.search(self.descriptor.group(0)).group(1)
+          self.pkey = self.descriptor_pkey_regex.search(self.descriptor.group(0)).group(1).replace('\n', '')
           self.secret_id = self.secret_id_regex.search(self.descriptor.group(0)).group(1)
           self.publication_time = self.publication_time_regex.search(self.descriptor.group(0)).group(1)
           self.protocol_versions = self.protocol_versions_regex.search(self.descriptor.group(0)).group(1)
           try:
-            self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1)
+            self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1).replace('\n', '')
           except AttributeError:
             self.introduction_points_encoded = None
           self.signature = self.signature_regex.search(self.descriptor.group(0)).group(1)
@@ -268,7 +268,7 @@ class myThread (threading.Thread):
   # Function that decodes the instruction pointers message field of the descriptor
   def decode_introduction_points(self, encoded_introduction_points):
     print("Decoding instruction pointers message" )
-    self.output = base64.decodestring(encoded_introduction_points.encode('utf-8').strip())
+    self.output = base64.decodestring(encoded_introduction_points.encode('utf-8'))
     print("Decoded the instruction pointers!")
     return self.output.decode('utf-8')
     
