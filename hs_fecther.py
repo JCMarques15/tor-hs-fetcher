@@ -28,7 +28,7 @@ class myThread (threading.Thread):
     # Initialize regex processing rules
     self.v2_full_descriptor_regex = re.compile("rendezvous-service-descriptor.*?-----END SIGNATURE[-]{0,5}", re.DOTALL)
     self.v3_full_descriptor_regex = re.compile(r"hs-descriptor\s[\d].*?signature\s.*?\s", re.DOTALL)
-    self.v3_cert_regex = re.compile("^[-]{0,5}BEGIN ED25519 CERT[-]{0,5}\n(.*?)\n[-]{0,5}END ED25519 CERT[-]{0,5}$", re.DOTALL)
+    self.v3_cert_regex = re.compile("[-]{0,5}BEGIN ED25519 CERT[-]{0,5}\n(.*?)\n[-]{0,5}END ED25519 CERT[-]{0,5}", re.DOTALL)
     self.rendezvous_regex = re.compile(r"rendezvous-service-descriptor\s(.*)")
     self.descriptor_version_regex = re.compile(r"version\s(.*)")
     self.descriptor_pkey_regex = re.compile("permanent-key\n-----BEGIN RSA PUBLIC KEY-----(.*?)-----END RSA PUBLIC KEY-----", re.DOTALL)
@@ -156,7 +156,7 @@ class myThread (threading.Thread):
       self.lock.acquire()
       print("{}: Acquired lock!".format(self.name))
       print("[+] Inserting extraction stats into Database")
-      self.cursor.execute("INSERT INTO extraction_stats(v2, v3, extracted_date, pid) VALUES(?,?,?)", (self.v2_descriptor_counter, self.v3_descriptor_counter, "{}H".format(self.extraction_datetime), self.pid))
+      self.cursor.execute("INSERT INTO extraction_stats(v2, v3, extracted_date, pid) VALUES(?,?,?,?)", (self.v2_descriptor_counter, self.v3_descriptor_counter, "{}H".format(self.extraction_datetime), self.pid))
       self.db.commit()
       self.lock.release()
       print("{}: Released lock!\n".format(self.name))
@@ -164,8 +164,8 @@ class myThread (threading.Thread):
     # raised from trying to iterate an empty object and prints a message
     except TypeError as err:
       print("No V2 descriptors found! Error: {}".format(err.args))
-    except sqlite3.OperationalError:
-          print("Sqlite error:\n{}".format(self.descriptor.group(0)))
+    except sqlite3.OperationalError as err:
+          print("Sqlite error:\n{}".format(err.args))
           sys.exit(1)
     print ("Exiting {}".format(self.name))
 
