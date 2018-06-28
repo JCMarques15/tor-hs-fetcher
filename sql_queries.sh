@@ -2,13 +2,8 @@
 
 while true; do
   echo "Choose one of the following options to print the corresponding table:"
-  read -p "
-           Hidden Services - 1
-           V2-Descriptors - 2
-           V2-Introduction Points - 3
-           V2-Descriptor Snapshots - 4
-           V3-Descriptor Certs - 5
-           Extraction Stats - 6" query
+  read -p "Hidden Services(1) V2-Descriptors(2) V2-Introduction Points(3) V2-Descriptor Snapshots(4) V3-Descriptor Certs(5) Extraction Stats(6)
+  Choice? " query
   
   case $query in
     [1]* ) sqlite3 hidden_services.db "select * from hidden_services" | awk -F"|" '{for(c=0;c<70;c++) printf "-"; print "\nID\tLink\t\t\t\tReachable\tClassification"; print $1"\t"$2"\t\t"$3"\t\t"$4}' | less;;
