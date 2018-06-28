@@ -207,8 +207,8 @@ class myThread (threading.Thread):
           "introduction_point":self.fields.group(1),
           "ip":self.fields.group(2),
           "port":self.fields.group(3),
-          "onion_key":self.fields.group(4),
-          "service_key":self.fields.group(5)})
+          "onion_key":self.fields.group(4).replace('\n', ''),
+          "service_key":self.fields.group(5).replace('\n', '')})
 
   # Function to update the entry in the database with the newly published descriptor
   def db_update_descriptor(self):
@@ -228,8 +228,8 @@ class myThread (threading.Thread):
           "introduction_point":self.fields.group(1),
           "ip":self.fields.group(2),
           "port":self.fields.group(3),
-          "onion_key":self.fields.group(4),
-          "service_key":self.fields.group(5)})
+          "onion_key":self.fields.group(4).replace('\n', ''),
+          "service_key":self.fields.group(5).replace('\n', '')})
       
   # Function to insert the descriptor into a snapshot table for archiving purposes 
   def snapshot_insert_descriptor(self):
