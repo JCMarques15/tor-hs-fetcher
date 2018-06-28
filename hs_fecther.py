@@ -27,8 +27,8 @@ class myThread (threading.Thread):
 
     # Initialize regex processing rules
     self.v2_full_descriptor_regex = re.compile("rendezvous-service-descriptor.*?-----END SIGNATURE[-]{0,5}", re.DOTALL)
-    self.v3_full_descriptor_regex = re.compile("hs-descriptor\s[\d].*?signature\s.*?\s", re.DOTALL)
-    self.v3_cert_regex = re.compile("^[-]{0,5}BEGIN\sED25519\sCERT[-]{0,5}\s(.*?)[-]{0,5}END\sED25519\sCERT[-]{0,5}$", re.DOTALL)
+    self.v3_full_descriptor_regex = re.compile(r"hs-descriptor\s[\d].*?signature\s.*?\s", re.DOTALL)
+    self.v3_cert_regex = re.compile(r"^[-]{0,5}BEGIN\sED25519\sCERT[-]{0,5}\s(.*?)[-]{0,5}END\sED25519\sCERT[-]{0,5}$", re.DOTALL)
     self.rendezvous_regex = re.compile(r"rendezvous-service-descriptor\s(.*)")
     self.descriptor_version_regex = re.compile(r"version\s(.*)")
     self.descriptor_pkey_regex = re.compile("permanent-key\n-----BEGIN RSA PUBLIC KEY-----(.*?)-----END RSA PUBLIC KEY-----", re.DOTALL)
@@ -58,7 +58,21 @@ class myThread (threading.Thread):
     # Try to extract the descriptors out of the strings file
     try:
       # Takes all of the v3 descriptors out of the strings file and extracts the cert for identification purposes
-      # TODO: add v3 code
+      for self.v3_descriptor in self.v3_full_descriptor_regex.finditer(self.file_contents):
+        # Extract the certificate for comparison
+        self.v3_cert = self.v3_cert_regex.search(self.v3_descriptor.group(0)).group(1)
+        
+        # Aquire lock to interact with DB
+        self.lock.acquire()
+        print("{}: Acquired lock!".format(self.name))
+
+        # Check if cert is already in DB, if not call function to add it
+        if (self.cursor.execute("SELECT EXISTS(SELECT * FROM v3_descriptors WHERE descriptor_cert='{}')".format(self.v3_cert,)).fetchone()[0] == 0):
+          self.db_insert_v3_cert()
+          self.v3_descriptor_counter += 1
+        else:
+          print("[-] V3 cert already in the Database!")
+          continue
 
       # Takes all of the v2 descriptors out of the strings variable and process each one by one
       for self.descriptor in self.v2_full_descriptor_regex.finditer(self.file_contents):
@@ -221,6 +235,10 @@ class myThread (threading.Thread):
       "protocol_versions":self.protocol_versions,
       "introduction_points":self.introduction_points_encoded, 
       "descriptor_signature":self.signature})
+
+  def db_insert_v3_cert(self):
+    print("[+] Inserting v3 cert into the Database")
+    self.cursor.execute("INSERT INTO v3_descriptors(descriptor_cert) VALUES(?)", (self.v3_cert,))
 
   # Function to call the shell script to make the hourly memory dump of the tor processes
   # TODO: Convert from the shell scrip to native python code
