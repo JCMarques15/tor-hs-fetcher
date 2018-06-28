@@ -270,7 +270,7 @@ class myThread (threading.Thread):
     print("Decoding instruction pointers message" )
     self.output = base64.decodestring(encoded_introduction_points.encode('utf-8'))
     print("Decoded the instruction pointers!")
-    return self.output.decode('utf-8')
+    return self.output.decode('utf-8').replace('\n', '')
     
 
 def extract_pid():
