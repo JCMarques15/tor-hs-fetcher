@@ -60,7 +60,7 @@ class myThread (threading.Thread):
       # Takes all of the v3 descriptors out of the strings file and extracts the cert for identification purposes
       for self.v3_descriptor in self.v3_full_descriptor_regex.finditer(self.file_contents):
         # Extract the certificate for comparison
-        self.v3_cert = self.v3_cert_regex.search(self.v3_descriptor.group(0)).group(1)
+        self.v3_cert = self.v3_cert_regex.search(self.v3_descriptor.group(0)).group(1).strip()
         
         # Acquire lock to interact with DB
         self.lock.acquire()
@@ -113,9 +113,9 @@ class myThread (threading.Thread):
         except UnicodeDecodeError:
           print("Found descriptor with bad encoding!\n")
           continue
-        except binascii.Error:
-          print("Encoding error:\n{}".format(self.descriptor.group(0)))
-          sys.exit(1)
+        except binascii.Error as err:
+          print("Encoding error:\n{}".format(err.args))
+          continue
 
         # Thread acquires the lock to access the database
         self.lock.acquire()
