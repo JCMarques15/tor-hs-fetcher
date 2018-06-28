@@ -98,7 +98,7 @@ class myThread (threading.Thread):
             self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1).replace('\n', '')
           except AttributeError:
             self.introduction_points_encoded = None
-          self.signature = self.signature_regex.search(self.descriptor.group(0)).group(1)
+          self.signature = self.signature_regex.search(self.descriptor.group(0)).group(1).replace('\n', '')
           self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
           
           # Extracts each introduction point and adds it to a list
