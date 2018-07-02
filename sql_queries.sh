@@ -11,7 +11,7 @@ while true; do
     [3]* ) sqlite3 hidden_services.db "select * from descriptors_introduction_points" | awk -F"|" '{for(c=0;c<90;c++) printf "-"; print "\nID\tLink_ID\t\tIP_Fingerprint\t\t\t\tIP_Address\tOnion_Port"; print $1"\t"$2"\t\t"$3"\t"$4"\t"$5; print "\nOnion_Key\n"$6; print "\nService_key\n"$7}' | less; clear;;
     [4]* ) sqlite3 hidden_services.db "select * from descriptors_snapshot" | awk -F"|" '{for(c=0;c<82;c++) printf "-"; print "\nID\tLink_ID\t\tDescriptor_Fingerprint\t\t\tDescriptor_Version"; print $1"\t"$2"\t\t"$3"\t"$4; print "\nPublic-Key\n"$5; print "\nSecret-ID\t\t\t\tPublication_time\tProtocol_Version"; print $6"\t"$7"\t"$8; print "\nIntroduction_points\n"$9; print "\nSignature\n"$10;}' | less; clear;;
     [5]* ) sqlite3 hidden_services.db "select * from v3_descriptors" | awk -F"|" 'BEGIN{print "ID\tCERT"} {print $1"\t"$2}' | less; clear;;
-    [6]* ) sqlite3 hidden_services.db "select * from extraction_stats;" | awk -F"|" 'BEGIN{print "V3\tV2\tDATE\t\tProcess"} {print $1"\t"$2"\t"$3"\t"$4}' | less; clear;;
+    [6]* ) sqlite3 hidden_services.db "select * from extraction_stats;" | awk -F"|" 'BEGIN{print "V2\tV3\tDATE\t\tProcess"} {print $1"\t"$2"\t"$3"\t"$4}' | less; clear;;
     [Qq]* ) exit;;
     * ) clear; echo "Uknown option.";;
   esac
