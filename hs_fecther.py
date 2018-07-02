@@ -286,12 +286,12 @@ def main():
   thread_list=[]
   lock = threading.Lock()
 
-  if Path("{}/hidden_services.db".format(sys.path[0])).is_file():
+  if Path("{}/Memory_Dumps/hidden_services.db".format(sys.path[0])).is_file():
     print("Database exists, opening it up...")
-    db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
+    db = sqlite3.connect("{}/Memory_Dumps/hidden_services.db".format(sys.path[0]), check_same_thread=False)
   else:
     print("Database doesn't exist, creating it...")
-    db = sqlite3.connect("{}/hidden_services.db".format(sys.path[0]), check_same_thread=False)
+    db = sqlite3.connect("{}/Memory_Dumps/hidden_services.db".format(sys.path[0]), check_same_thread=False)
     cursor = db.cursor()
     with open("{}/sqlite_database_create.sql".format(sys.path[0])) as create_sql:
       cursor.executescript(create_sql.read())
