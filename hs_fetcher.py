@@ -156,7 +156,10 @@ class myThread (threading.Thread):
       self.lock.acquire()
       print("{}: Acquired lock!".format(self.name))
       print("[+] Inserting extraction stats into Database")
-      self.cursor.execute("INSERT INTO extraction_stats(v2, v3, extraction_date, pid) VALUES(?,?,?,?)", (self.v2_descriptor_counter, self.v3_descriptor_counter, "{}H".format(self.extraction_datetime), self.pid))
+      try:
+        self.cursor.execute("INSERT INTO extraction_stats(v2, v3, extraction_date, pid) VALUES(?,?,?,?)", (self.v2_descriptor_counter, self.v3_descriptor_counter, "{}H".format(self.extraction_datetime), self.pid))
+      except sqlite3.IntegrityError:
+        sys.stderr.write("[-] Entry for the hour/pid is already in the database")
       self.db.commit()
       self.lock.release()
       print("{}: Released lock!\n".format(self.name))
