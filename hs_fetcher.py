@@ -145,7 +145,7 @@ class myThread (threading.Thread):
             # If there is an entry, it checks if the entry publication time is the same as the newly extracted descriptor
             if (self.cursor.execute("SELECT EXISTS(SELECT link_id, publication_time FROM descriptors WHERE link_id='{}' and publication_time='{}')".format(self.onion_link_id, self.publication_time)).fetchone()[0] == 0):
               # If it is not then it calls the function to updates the entry in the database and also calls the function to add it to the snapshot
-              self.db_update_descriptor()
+              #self.db_update_descriptor()
               self.snapshot_insert_descriptor()
             else:
               # If it is the same then just prints a message and continues
