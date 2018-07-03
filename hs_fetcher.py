@@ -165,7 +165,7 @@ class myThread (threading.Thread):
     except TypeError as err:
       print("No V2 descriptors found! Error: {}".format(err.args))
     except sqlite3.OperationalError as err:
-          print("Sqlite error:\n{}".format(err.args))
+          sys.stderr.write("Sqlite error:\n{}".format(err.args))
           sys.exit(1)
     print ("Exiting {}".format(self.name))
 
@@ -312,5 +312,5 @@ if __name__ == '__main__':
   try:
     main()
   except KeyboardInterrupt:
-    print("\rCtrl-C captured, Exiting!")
+    sys.stderr.write("\rCtrl-C captured, Exiting!")
     sys.exit(1)
