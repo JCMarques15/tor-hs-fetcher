@@ -159,7 +159,7 @@ class myThread (threading.Thread):
       try:
         self.cursor.execute("INSERT INTO extraction_stats(v2, v3, extraction_date, pid) VALUES(?,?,?,?)", (self.v2_descriptor_counter, self.v3_descriptor_counter, "{}H".format(self.extraction_datetime), self.pid))
       except sqlite3.IntegrityError:
-        sys.stderr.write("[-] Entry for the hour/pid is already in the database")
+        sys.stderr.write("[-] Entry for the hour/pid is already in the database\n")
       self.db.commit()
       self.lock.release()
       print("{}: Released lock!\n".format(self.name))
@@ -168,7 +168,7 @@ class myThread (threading.Thread):
     except TypeError as err:
       print("No V2 descriptors found! Error: {}".format(err.args))
     except sqlite3.OperationalError as err:
-          sys.stderr.write("Sqlite error:\n{}".format(err.args))
+          sys.stderr.write("Sqlite error:\n{}\n".format(err.args))
           sys.exit(1)
     print ("Exiting {}".format(self.name))
 
@@ -315,5 +315,5 @@ if __name__ == '__main__':
   try:
     main()
   except KeyboardInterrupt:
-    sys.stderr.write("\rCtrl-C captured, Exiting!")
+    sys.stderr.write("\rCtrl-C captured, Exiting!\n")
     sys.exit(1)
