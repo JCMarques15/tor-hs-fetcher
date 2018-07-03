@@ -59,24 +59,27 @@ class myThread (threading.Thread):
     try:
       # Takes all of the v3 descriptors out of the strings file and extracts the cert for identification purposes
       for self.v3_descriptor in self.v3_full_descriptor_regex.finditer(self.file_contents):
-        # Extract the certificate for comparison
-        self.v3_cert = self.v3_cert_regex.search(self.v3_descriptor.group(0)).group(1).replace('\n', '')
-        
-        # Acquire lock to interact with DB
-        self.lock.acquire()
-        print("{}: Acquired lock!".format(self.name))
+        try:
+          # Extract the certificate for comparison
+          self.v3_cert = self.v3_cert_regex.search(self.v3_descriptor.group(0)).group(1).replace('\n', '')
+          
+          # Acquire lock to interact with DB
+          self.lock.acquire()
+          print("{}: Acquired lock!".format(self.name))
 
-        # Check if cert is already in DB, if not call function to add it
-        if (self.cursor.execute("SELECT EXISTS(SELECT * FROM v3_descriptors WHERE descriptor_cert='{}')".format(self.v3_cert,)).fetchone()[0] == 0):
-          self.db_insert_v3_cert()
-          self.v3_descriptor_counter += 1
-        else:
-          print("[-] V3 cert already in the Database!")
-        
-        # Commit changed to DB and release the lock
-        self.db.commit()
-        self.lock.release()
-        print("{}: Released lock!\n".format(self.name))
+          # Check if cert is already in DB, if not call function to add it
+          if (self.cursor.execute("SELECT EXISTS(SELECT * FROM v3_descriptors WHERE descriptor_cert='{}')".format(self.v3_cert,)).fetchone()[0] == 0):
+            self.db_insert_v3_cert()
+            self.v3_descriptor_counter += 1
+          else:
+            print("[-] V3 cert already in the Database!")
+          
+          # Commit changed to DB and release the lock
+          self.db.commit()
+          self.lock.release()
+          print("{}: Released lock!\n".format(self.name))
+        except sqlite3.OperationalError as err:
+          sys.stderr.write("Sqlite error:\n{}\n".format(err.args))
     # If no V3 descriptors are found it prints a message and continues to V2 descriptors extraction
     except TypeError as err:
       print("No V3 descriptors found! Error: {}".format(err.args))
@@ -85,72 +88,76 @@ class myThread (threading.Thread):
     try:
       # Takes all of the V2 descriptors out of the strings variable and process each one by one
       for self.descriptor in self.v2_full_descriptor_regex.finditer(self.file_contents):
-        # try to extract the fields of the descriptor
         try:
-          # Extracts each field into his own variable
-          self.rendezvous = self.rendezvous_regex.search(self.descriptor.group(0)).group(1)
-          self.descriptor_version = self.descriptor_version_regex.search(self.descriptor.group(0)).group(1)
-          self.pkey = self.descriptor_pkey_regex.search(self.descriptor.group(0)).group(1).replace('\n', '')
-          self.secret_id = self.secret_id_regex.search(self.descriptor.group(0)).group(1)
-          self.publication_time = self.publication_time_regex.search(self.descriptor.group(0)).group(1)
-          self.protocol_versions = self.protocol_versions_regex.search(self.descriptor.group(0)).group(1)
+          # try to extract the fields of the descriptor
           try:
-            self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1).replace('\n', '')
-          except AttributeError:
-            self.introduction_points_encoded = None
-          self.signature = self.signature_regex.search(self.descriptor.group(0)).group(1).replace('\n', '')
-          self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
-          
-          # Extracts each introduction point and adds it to a list
-          if (self.introduction_points_encoded is not None):
-            self.introduction_points_list = list(self.full_introduction_points_decoded_regex.finditer(self.decode_introduction_points(self.introduction_points_encoded)))
-            self.introduction_points_count = len(self.introduction_points_list)
+            # Extracts each field into his own variable
+            self.rendezvous = self.rendezvous_regex.search(self.descriptor.group(0)).group(1)
+            self.descriptor_version = self.descriptor_version_regex.search(self.descriptor.group(0)).group(1)
+            self.pkey = self.descriptor_pkey_regex.search(self.descriptor.group(0)).group(1).replace('\n', '')
+            self.secret_id = self.secret_id_regex.search(self.descriptor.group(0)).group(1)
+            self.publication_time = self.publication_time_regex.search(self.descriptor.group(0)).group(1)
+            self.protocol_versions = self.protocol_versions_regex.search(self.descriptor.group(0)).group(1)
+            try:
+              self.introduction_points_encoded = self.introduction_points_encoded_regex.search(self.descriptor.group(0)).group(1).replace('\n', '')
+            except AttributeError:
+              self.introduction_points_encoded = None
+            self.signature = self.signature_regex.search(self.descriptor.group(0)).group(1).replace('\n', '')
+            self.onion_link = "{}.onion".format(self.calc_onion_link(self.pkey))
+            
+            # Extracts each introduction point and adds it to a list
+            if (self.introduction_points_encoded is not None):
+              self.introduction_points_list = list(self.full_introduction_points_decoded_regex.finditer(self.decode_introduction_points(self.introduction_points_encoded)))
+              self.introduction_points_count = len(self.introduction_points_list)
+            else:
+              self.introduction_points_list = None
+              self.introduction_points_count = 0
+          # Captures an exception raised when there is an error on the decoding of certain fields
+          # It prints a message and continues to the next descriptor without inserting into the database
+          except UnicodeDecodeError:
+            print("Found descriptor with bad encoding!\n")
+            continue
+          except binascii.Error as err:
+            print("Encoding error:\n{}".format(err.args))
+            continue
+
+          # Thread acquires the lock to access the database
+          self.lock.acquire()
+          print("{}: Acquired lock!".format(self.name))
+
+          # Checks if there is already an entry for the onion link
+          if (self.cursor.execute("SELECT EXISTS(SELECT * FROM hidden_services WHERE link='{}')".format(self.onion_link,)).fetchone()[0] == 0):
+            # if there isn't then it calls the function to add it
+            self.db_insert_link()
+            self.v2_descriptor_counter += 1
           else:
-            self.introduction_points_list = None
-            self.introduction_points_count = 0
-        # Captures an exception raised when there is an error on the decoding of certain fields
-        # It prints a message and continues to the next descriptor without inserting into the database
-        except UnicodeDecodeError:
-          print("Found descriptor with bad encoding!\n")
-          continue
-        except binascii.Error as err:
-          print("Encoding error:\n{}".format(err.args))
-          continue
+            # If there is then retrieves the link_id of the entry for later use
+            print("[-] Onion link already in the Database")
+            self.onion_link_id = self.cursor.execute("SELECT id FROM hidden_services WHERE link='{}'".format(self.onion_link)).fetchone()[0]
+            print("Onion link id is: {}".format(self.onion_link_id))
 
-        # Thread acquires the lock to access the database
-        self.lock.acquire()
-        print("{}: Acquired lock!".format(self.name))
-
-        # Checks if there is already an entry for the onion link
-        if (self.cursor.execute("SELECT EXISTS(SELECT * FROM hidden_services WHERE link='{}')".format(self.onion_link,)).fetchone()[0] == 0):
-          # if there isn't then it calls the function to add it
-          self.db_insert_link()
-          self.v2_descriptor_counter += 1
-        else:
-          # If there is then retrieves the link_id of the entry for later use
-          print("[-] Onion link already in the Database")
-          self.onion_link_id = self.cursor.execute("SELECT id FROM hidden_services WHERE link='{}'".format(self.onion_link)).fetchone()[0]
-          print("Onion link id is: {}".format(self.onion_link_id))
-
-        # Check if there is already a descriptor entry for the onion link
-        if (self.cursor.execute("SELECT EXISTS(SELECT link_id, publication_time FROM descriptors WHERE link_id='{}')".format(self.onion_link_id)).fetchone()[0] == 0):
-          # If there isn't then call function to insert descriptor, also calls the function to add it to the snapshot table
-          self.db_insert_descriptor()
-          self.snapshot_insert_descriptor()
-        else:
-          # If there is an entry, it checks if the entry publication time is the same as the newly extracted descriptor
-          if (self.cursor.execute("SELECT EXISTS(SELECT link_id, publication_time FROM descriptors WHERE link_id='{}' and publication_time='{}')".format(self.onion_link_id, self.publication_time)).fetchone()[0] == 0):
-            # If it is not then it calls the function to updates the entry in the database and also calls the function to add it to the snapshot
-            self.db_update_descriptor()
+          # Check if there is already a descriptor entry for the onion link
+          if (self.cursor.execute("SELECT EXISTS(SELECT link_id, publication_time FROM descriptors WHERE link_id='{}')".format(self.onion_link_id)).fetchone()[0] == 0):
+            # If there isn't then call function to insert descriptor, also calls the function to add it to the snapshot table
+            self.db_insert_descriptor()
             self.snapshot_insert_descriptor()
           else:
-            # If it is the same then just prints a message and continues
-            print("[-] Descriptor is still the same as the one in the Database!")
+            # If there is an entry, it checks if the entry publication time is the same as the newly extracted descriptor
+            if (self.cursor.execute("SELECT EXISTS(SELECT link_id, publication_time FROM descriptors WHERE link_id='{}' and publication_time='{}')".format(self.onion_link_id, self.publication_time)).fetchone()[0] == 0):
+              # If it is not then it calls the function to updates the entry in the database and also calls the function to add it to the snapshot
+              self.db_update_descriptor()
+              self.snapshot_insert_descriptor()
+            else:
+              # If it is the same then just prints a message and continues
+              print("[-] Descriptor is still the same as the one in the Database!")
 
-        # At the end of each entry it commits the changes to the database file and releases the lock so other threads can access the database
-        self.db.commit()
-        self.lock.release()
-        print("{}: Released lock!\n".format(self.name))
+          # At the end of each entry it commits the changes to the database file and releases the lock so other threads can access the database
+          self.db.commit()
+          self.lock.release()
+          print("{}: Released lock!\n".format(self.name))
+
+        except sqlite3.OperationalError as err:
+          sys.stderr.write("Sqlite error:\n{}\n".format(err.args))
 
       # Aquire lock at the end and add to the database to a specific table the amount of new links with date of the scan
       self.lock.acquire()
@@ -167,9 +174,7 @@ class myThread (threading.Thread):
     # raised from trying to iterate an empty object and prints a message
     except TypeError as err:
       print("No V2 descriptors found! Error: {}".format(err.args))
-    except sqlite3.OperationalError as err:
-          sys.stderr.write("Sqlite error:\n{}\n".format(err.args))
-          sys.exit(1)
+
     print ("Exiting {}".format(self.name))
 
   # Function to insert new links into the database
