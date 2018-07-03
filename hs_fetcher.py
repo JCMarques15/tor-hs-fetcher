@@ -120,6 +120,9 @@ class myThread (threading.Thread):
           except binascii.Error as err:
             print("Encoding error:\n{}".format(err.args))
             continue
+          except Exception as err:
+            sys.stderr.write("Error found: {}\n".format(err.args))
+            continue
 
           # Thread acquires the lock to access the database
           self.lock.acquire()
